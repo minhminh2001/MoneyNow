@@ -471,7 +471,7 @@ class _CreateApplicationScreenState
             const SizedBox(height: 12),
             FilledButton.tonal(
               onPressed: () async {
-                await _persistDraft(stepOverride: 3);
+                unawaited(_persistDraft(stepOverride: 3));
                 if (!context.mounted) return;
                 await Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const ProfileScreen()),

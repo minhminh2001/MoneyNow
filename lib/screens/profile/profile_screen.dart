@@ -112,11 +112,43 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     });
 
     try {
-      await ref
-          .read(profileRepositoryProvider)
-          .upsertProfile(updatedUser)
-          .timeout(const Duration(seconds: 8));
+      var saveTimedOut = false;
+      final saveFuture =
+          ref.read(profileRepositoryProvider).upsertProfile(updatedUser);
+
+      unawaited(
+        saveFuture.catchError((_) {
+          // The foreground flow below handles visible errors. This prevents
+          // an unawaited background completion from surfacing unexpectedly.
+        }),
+      );
+
+      await saveFuture.timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          saveTimedOut = true;
+        },
+      );
+
       if (!mounted) return;
+
+      if (saveTimedOut) {
+        setState(() {
+          _loading = false;
+          _saveStatusText = 'Kết nối đang chậm. Hồ sơ sẽ tiếp tục đồng bộ nền...';
+        });
+        await showAppNoticeDialog(
+          context,
+          title: 'Đang đồng bộ nền',
+          message:
+              'Mạng đang phản hồi chậm nên app chưa xác nhận xong với Firestore. '
+              'Thay đổi của bạn vẫn đang tiếp tục đồng bộ nền.',
+        );
+        if (!mounted) return;
+        Navigator.of(context).pop();
+        return;
+      }
+
       setState(() => _saveStatusText = 'Đã lưu hồ sơ thành công.');
       await showAppNoticeDialog(
         context,
@@ -131,7 +163,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       await showAppNoticeDialog(
         context,
         title: 'Lưu thất bại',
-        message: 'Lưu thất bại: $error',
+        message:
+            'Không thể lưu hồ sơ lúc này. Vui lòng kiểm tra mạng và thử lại.\n\nChi tiết: $error',
         isError: true,
       );
     } finally {

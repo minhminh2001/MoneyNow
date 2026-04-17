@@ -39,6 +39,12 @@ class HomeScreen extends ConsumerWidget {
     final completedStepCount = flowSteps
         .where((step) => step.status == _FlowStepStatus.done)
         .length;
+    final currentFlowStep = flowSteps
+        .firstWhere(
+          (step) => step.status == _FlowStepStatus.current,
+          orElse: () => flowSteps.last,
+        )
+        .step;
     final nextStep = _nextStepLabel(
       draft: draft,
       lightVerificationComplete: profile?.isLightVerificationComplete == true,
@@ -123,7 +129,10 @@ class HomeScreen extends ConsumerWidget {
               onTap: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(
-                      builder: (_) => const CreateApplicationScreen()),
+                    builder: (_) => CreateApplicationScreen(
+                      initialStep: currentFlowStep,
+                    ),
+                  ),
                 );
               },
             ),
