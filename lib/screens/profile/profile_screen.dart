@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -146,7 +148,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     setState(() => _syncingContacts = true);
 
     try {
-      final result = await _contactSyncService.requestAndReadContacts();
+      final result = await _contactSyncService
+          .requestAndReadContacts()
+          .timeout(const Duration(seconds: 20));
       if (!result.granted) {
         if (!mounted) return;
         await showAppNoticeDialog(
@@ -159,10 +163,25 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         return;
       }
 
-      await ref.read(profileRepositoryProvider).savePhoneContacts(
+      if (result.contacts.isEmpty) {
+        if (!mounted) return;
+        await showAppNoticeDialog(
+          context,
+          title: 'Danh bạ trống',
+          message:
+              'Không tìm thấy liên hệ nào có số điện thoại để đồng bộ. Vui lòng kiểm tra lại danh bạ trên máy.',
+          isError: true,
+        );
+        return;
+      }
+
+      await ref
+          .read(profileRepositoryProvider)
+          .savePhoneContacts(
             uid: firebaseUser.uid,
             contacts: result.contacts,
-          );
+          )
+          .timeout(const Duration(seconds: 25));
 
       if (!mounted) return;
       await showAppNoticeDialog(
@@ -173,10 +192,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       );
     } catch (error) {
       if (!mounted) return;
+      final message = error is TimeoutException
+          ? 'Đồng bộ danh bạ mất quá nhiều thời gian. Vui lòng thử lại, hoặc giảm bớt số lượng liên hệ trên máy rồi thử tiếp.'
+          : 'Không thể đọc hoặc lưu danh bạ: $error';
       await showAppNoticeDialog(
         context,
         title: 'Đồng bộ thất bại',
-        message: 'Không thể đọc hoặc lưu danh bạ: $error',
+        message: message,
         isError: true,
       );
     } finally {

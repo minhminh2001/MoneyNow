@@ -64,7 +64,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '656565938424',
     projectId: 'loan-a782e',
     storageBucket: 'loan-a782e.firebasestorage.app',
-    iosBundleId: 'com.example.loanAppFirebaseMvp',
+    iosBundleId: 'com.phanhoang.moneynow',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(

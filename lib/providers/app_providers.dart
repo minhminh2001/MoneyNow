@@ -40,7 +40,10 @@ final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
 });
 
 final storageRepositoryProvider = Provider<StorageRepository>((ref) {
-  return StorageRepository(ref.watch(storageProvider));
+  return StorageRepository(
+    ref.watch(storageProvider),
+    ref.watch(firebaseAuthProvider),
+  );
 });
 
 final loanRepositoryProvider = Provider<LoanRepository>((ref) {

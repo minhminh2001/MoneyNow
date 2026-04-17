@@ -29,9 +29,14 @@ class HomeScreen extends ConsumerWidget {
     final draft = draftAsync.value ?? LoanDraft.empty();
     final user = ref.watch(currentUserProvider);
     final hasDraft = draft.requestedAmount > 0 || draft.purpose.isNotEmpty;
+    final flowSteps = _buildFlowSteps(
+      draft: draft,
+      profile: profile,
+      documentCount: documents.length,
+    );
     final nextStep = _nextStepLabel(
       draft: draft,
-      profileComplete: profile?.isProfileComplete == true,
+      lightVerificationComplete: profile?.isLightVerificationComplete == true,
       documentCount: documents.length,
     );
 
@@ -69,6 +74,7 @@ class HomeScreen extends ConsumerWidget {
             _FlowOverviewCard(
               nextStep: nextStep,
               hasDraft: hasDraft,
+              flowSteps: flowSteps,
               onTap: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(
@@ -159,19 +165,73 @@ class HomeScreen extends ConsumerWidget {
 
 String _nextStepLabel({
   required LoanDraft draft,
-  required bool profileComplete,
+  required bool lightVerificationComplete,
   required int documentCount,
 }) {
   if (draft.requestedAmount <= 0 || draft.purpose.isEmpty) {
     return 'Bước 1/4: Khai báo nhanh để xem hạn mức tạm tính';
   }
-  if (!profileComplete) {
+  if (draft.currentStep < 3) {
+    return 'Bước 2/4: Xem kết quả sơ bộ và tiếp tục xác minh';
+  }
+  if (!lightVerificationComplete) {
     return 'Bước 3/4: Hoàn tất hồ sơ cá nhân và đồng bộ danh bạ bắt buộc';
   }
   if (documentCount < 3) {
     return 'Bước 4/4: Tải CCCD và ảnh selfie để nộp hồ sơ';
   }
   return 'Bạn đã sẵn sàng nộp hồ sơ vay';
+}
+
+List<_FlowStepData> _buildFlowSteps({
+  required LoanDraft draft,
+  required AppUser? profile,
+  required int documentCount,
+}) {
+  final quickInfoDone = draft.requestedAmount > 0 && draft.purpose.isNotEmpty;
+  final preApprovalDone =
+      draft.currentStep >= 3 || profile != null || documentCount > 0;
+  final lightVerificationDone = profile?.isLightVerificationComplete == true;
+  final mainVerificationDone = documentCount >= 3;
+
+  int currentStep = 1;
+  if (quickInfoDone && !preApprovalDone) {
+    currentStep = 2;
+  } else if (preApprovalDone && !lightVerificationDone) {
+    currentStep = 3;
+  } else if (lightVerificationDone && !mainVerificationDone) {
+    currentStep = 4;
+  } else if (mainVerificationDone) {
+    currentStep = 4;
+  }
+
+  _FlowStepStatus statusFor({
+    required int step,
+    required bool done,
+  }) {
+    if (done) return _FlowStepStatus.done;
+    if (step == currentStep) return _FlowStepStatus.current;
+    return _FlowStepStatus.upcoming;
+  }
+
+  return [
+    _FlowStepData(
+      text: '1. Khai báo nhanh',
+      status: statusFor(step: 1, done: quickInfoDone),
+    ),
+    _FlowStepData(
+      text: '2. Xem hạn mức',
+      status: statusFor(step: 2, done: preApprovalDone),
+    ),
+    _FlowStepData(
+      text: '3. Xác minh nhẹ',
+      status: statusFor(step: 3, done: lightVerificationDone),
+    ),
+    _FlowStepData(
+      text: '4. Nộp hồ sơ',
+      status: statusFor(step: 4, done: mainVerificationDone),
+    ),
+  ];
 }
 
 class _WarningBanner extends StatelessWidget {
@@ -376,11 +436,13 @@ class _FlowOverviewCard extends StatelessWidget {
   const _FlowOverviewCard({
     required this.nextStep,
     required this.hasDraft,
+    required this.flowSteps,
     required this.onTap,
   });
 
   final String nextStep;
   final bool hasDraft;
+  final List<_FlowStepData> flowSteps;
   final VoidCallback onTap;
 
   @override
@@ -440,12 +502,14 @@ class _FlowOverviewCard extends StatelessWidget {
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: const [
-                  _StepChip(text: '1. Khai báo nhanh'),
-                  _StepChip(text: '2. Xem hạn mức'),
-                  _StepChip(text: '3. Xác minh nhẹ'),
-                  _StepChip(text: '4. Nộp hồ sơ'),
-                ],
+                children: flowSteps
+                    .map(
+                      (step) => _StepChip(
+                        text: step.text,
+                        status: step.status,
+                      ),
+                    )
+                    .toList(),
               ),
               const SizedBox(height: 16),
               FilledButton(
@@ -520,20 +584,85 @@ class _ActionTile extends StatelessWidget {
 }
 
 class _StepChip extends StatelessWidget {
-  const _StepChip({required this.text});
+  const _StepChip({
+    required this.text,
+    required this.status,
+  });
 
   final String text;
+  final _FlowStepStatus status;
 
   @override
   Widget build(BuildContext context) {
+    final isDone = status == _FlowStepStatus.done;
+    final isCurrent = status == _FlowStepStatus.current;
+
+    final backgroundColor = isDone
+        ? const Color(0xFFDCF6E9)
+        : isCurrent
+            ? const Color(0xFF12343B)
+            : Colors.white.withValues(alpha: 0.92);
+    final borderColor = isDone
+        ? const Color(0xFFA8DEC2)
+        : isCurrent
+            ? const Color(0xFF12343B)
+            : const Color(0xFFDCEAF1);
+    final textColor = isDone
+        ? const Color(0xFF197A4B)
+        : isCurrent
+            ? Colors.white
+            : const Color(0xFF284257);
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.92),
+        color: backgroundColor,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: const Color(0xFFDCEAF1)),
+        border: Border.all(color: borderColor),
       ),
-      child: Text(text),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (isDone) ...[
+            const Icon(
+              Icons.check_circle_rounded,
+              size: 16,
+              color: Color(0xFF197A4B),
+            ),
+            const SizedBox(width: 6),
+          ] else if (isCurrent) ...[
+            const Icon(
+              Icons.radio_button_checked_rounded,
+              size: 16,
+              color: Colors.white,
+            ),
+            const SizedBox(width: 6),
+          ],
+          Text(
+            text,
+            style: TextStyle(
+              color: textColor,
+              fontWeight: isCurrent || isDone ? FontWeight.w700 : FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
     );
   }
+}
+
+class _FlowStepData {
+  const _FlowStepData({
+    required this.text,
+    required this.status,
+  });
+
+  final String text;
+  final _FlowStepStatus status;
+}
+
+enum _FlowStepStatus {
+  done,
+  current,
+  upcoming,
 }

@@ -282,7 +282,9 @@ class _CreateApplicationScreenState
 
     setState(() => _syncingContacts = true);
     try {
-      final result = await _contactSyncService.requestAndReadContacts();
+      final result = await _contactSyncService
+          .requestAndReadContacts()
+          .timeout(const Duration(seconds: 20));
       if (!result.granted) {
         if (!mounted) return;
         await showAppNoticeDialog(
@@ -295,10 +297,25 @@ class _CreateApplicationScreenState
         return;
       }
 
-      await ref.read(profileRepositoryProvider).savePhoneContacts(
+      if (result.contacts.isEmpty) {
+        if (!mounted) return;
+        await showAppNoticeDialog(
+          context,
+          title: 'Danh bạ trống',
+          message:
+              'Không tìm thấy liên hệ nào có số điện thoại để đồng bộ. Vui lòng kiểm tra lại danh bạ trên máy.',
+          isError: true,
+        );
+        return;
+      }
+
+      await ref
+          .read(profileRepositoryProvider)
+          .savePhoneContacts(
             uid: firebaseUser.uid,
             contacts: result.contacts,
-          );
+          )
+          .timeout(const Duration(seconds: 25));
 
       if (!mounted) return;
       await showAppNoticeDialog(
@@ -309,10 +326,13 @@ class _CreateApplicationScreenState
       );
     } catch (error) {
       if (!mounted) return;
+      final message = error is TimeoutException
+          ? 'Đồng bộ danh bạ mất quá nhiều thời gian. Vui lòng thử lại hoặc đồng bộ khi mạng ổn định hơn.'
+          : 'Đồng bộ danh bạ thất bại: $error';
       await showAppNoticeDialog(
         context,
         title: 'Không thể đồng bộ danh bạ',
-        message: 'Đồng bộ danh bạ thất bại: $error',
+        message: message,
         isError: true,
       );
     } finally {

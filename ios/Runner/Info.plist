@@ -28,6 +28,10 @@
 	<true/>
 	<key>NSContactsUsageDescription</key>
 	<string>Ứng dụng cần quyền truy cập danh bạ để lấy số điện thoại liên hệ và lưu lại phục vụ đánh giá hồ sơ vay.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Ứng dụng cần quyền camera để chụp CCCD và ảnh selfie phục vụ xác minh hồ sơ vay.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Ứng dụng cần quyền truy cập thư viện ảnh để tải CCCD và ảnh selfie lên hồ sơ vay.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

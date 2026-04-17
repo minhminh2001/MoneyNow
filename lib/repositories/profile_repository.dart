@@ -9,6 +9,7 @@ class ProfileRepository {
   ProfileRepository(this._firestore);
 
   final FirebaseFirestore _firestore;
+  static const int _contactsBatchSize = 200;
 
   DocumentReference<Map<String, dynamic>> _userRef(String uid) {
     return _firestore.collection('users').doc(uid);
@@ -87,22 +88,25 @@ class ProfileRepository {
     required String uid,
     required List<PhoneContact> contacts,
   }) async {
-    final batch = _firestore.batch();
     final contactsRef = _userRef(uid).collection('phoneContacts');
     final now = DateTime.now();
+    for (var index = 0; index < contacts.length; index += _contactsBatchSize) {
+      final batch = _firestore.batch();
+      final chunk = contacts.skip(index).take(_contactsBatchSize);
 
-    for (final contact in contacts) {
-      final docRef = contactsRef.doc(contact.id);
-      batch.set(
-        docRef,
-        contact.toMap()
-          ..['syncedAt'] = now
-          ..['updatedAt'] = now,
-        SetOptions(merge: true),
-      );
+      for (final contact in chunk) {
+        final docRef = contactsRef.doc(contact.id);
+        batch.set(
+          docRef,
+          contact.toMap()
+            ..['syncedAt'] = now
+            ..['updatedAt'] = now,
+          SetOptions(merge: true),
+        );
+      }
+
+      await batch.commit();
     }
-
-    await batch.commit();
 
     await _userRef(uid).set(
       {
