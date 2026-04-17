@@ -1,0 +1,136 @@
+platform :ios, '15.0'
+
+# CocoaPods analytics sends network stats synchronously affecting flutter build latency.
+ENV['COCOAPODS_DISABLE_STATS'] = 'true'
+
+project 'Runner', {
+  'Debug' => :debug,
+  'Profile' => :release,
+  'Release' => :release,
+}
+
+def flutter_root
+  generated_xcode_build_settings_path = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
+  unless File.exist?(generated_xcode_build_settings_path)
+    raise "#{generated_xcode_build_settings_path} must exist. If you're running pod install manually, make sure flutter pub get is executed first"
+  end
+
+  File.foreach(generated_xcode_build_settings_path) do |line|
+    matches = line.match(/FLUTTER_ROOT\=(.*)/)
+    return matches[1].strip if matches
+  end
+  raise "FLUTTER_ROOT not found in #{generated_xcode_build_settings_path}. Try deleting Generated.xcconfig, then run flutter pub get"
+end
+
+require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
+require 'fileutils'
+
+flutter_ios_podfile_setup
+use_modular_headers!
+
+def patch_embedded_framework_codesign
+  frameworks_script = File.join(__dir__, 'Pods', 'Target Support Files', 'Pods-Runner', 'Pods-Runner-frameworks.sh')
+  return unless File.exist?(frameworks_script)
+
+  script = File.read(frameworks_script)
+  original = 'if [ -n "${EXPANDED_CODE_SIGN_IDENTITY:-}" -a "${CODE_SIGNING_REQUIRED:-}" != "NO" -a "${CODE_SIGNING_ALLOWED}" != "NO" ]; then'
+  patched = 'if [ -n "${EXPANDED_CODE_SIGN_IDENTITY:-}" ]; then'
+  File.write(frameworks_script, script.sub(original, patched)) if script.include?(original)
+end
+
+def patch_grpc_xcconfigs
+  grpc_xcconfigs = Dir.glob(File.join(__dir__, 'Pods', 'Target Support Files', '**', '*.xcconfig'))
+
+  grpc_xcconfigs.each do |path|
+    next unless File.exist?(path)
+
+    content = File.read(path)
+    original = '${PODS_ROOT}/Headers/Private/grpc/gRPC-Core.modulemap'
+    patched = '${PODS_ROOT}/Headers/Private/gRPC-Core/grpc/gRPC-Core.modulemap'
+    File.write(path, content.gsub(original, patched)) if content.include?(original)
+  end
+
+  grpc_modulemap_source = File.join(__dir__, 'Pods', 'Target Support Files', 'gRPC-Core', 'gRPC-Core.modulemap')
+  grpc_modulemap_target = File.join(__dir__, 'Pods', 'Headers', 'Private', 'gRPC-Core', 'grpc', 'gRPC-Core.modulemap')
+  if File.exist?(grpc_modulemap_source) && File.exist?(File.dirname(grpc_modulemap_target))
+    FileUtils.rm_f(grpc_modulemap_target)
+    FileUtils.cp(grpc_modulemap_source, grpc_modulemap_target)
+  end
+end
+
+def patch_pods_runner_xcconfigs
+  pods_runner_xcconfigs = [
+    File.join(__dir__, 'Pods', 'Target Support Files', 'Pods-Runner', 'Pods-Runner.debug.xcconfig'),
+    File.join(__dir__, 'Pods', 'Target Support Files', 'Pods-Runner', 'Pods-Runner.release.xcconfig'),
+    File.join(__dir__, 'Pods', 'Target Support Files', 'Pods-Runner', 'Pods-Runner.profile.xcconfig'),
+  ]
+
+  pods_runner_xcconfigs.each do |path|
+    next unless File.exist?(path)
+
+    content = File.read(path)
+    content = content.gsub('${PODS_ROOT}/Headers/Private/grpc/gRPC-Core.modulemap', '${PODS_ROOT}/Headers/Private/gRPC-Core/grpc/gRPC-Core.modulemap')
+    content = content.gsub(' -weak_framework "FirebaseFirestoreInternal"', '')
+    File.write(path, content)
+  end
+end
+
+def patch_flutter_contacts_plugin
+  plugin_file = File.join(__dir__, '.symlinks', 'plugins', 'flutter_contacts', 'ios', 'Classes', 'SwiftFlutterContactsPlugin.swift')
+  return unless File.exist?(plugin_file)
+
+  content = File.read(plugin_file)
+  original = '        let rootViewController = UIApplication.shared.delegate!.window!!.rootViewController!
+        let instance = SwiftFlutterContactsPlugin(rootViewController)'
+  replacement = <<~SWIFT.chomp
+        let rootViewController = resolveRootViewController()
+        let instance = SwiftFlutterContactsPlugin(rootViewController)
+  SWIFT
+
+  helper = <<~SWIFT.chomp
+
+    private static func resolveRootViewController() -> UIViewController {
+        if #available(iOS 13.0, *) {
+            let activeScene = UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+                .first { $0.activationState == .foregroundActive || $0.activationState == .foregroundInactive }
+
+            let rootViewController = activeScene?.windows.first(where: \\.isKeyWindow)?.rootViewController
+                ?? activeScene?.windows.first?.rootViewController
+
+            if let rootViewController {
+                return rootViewController
+            }
+        }
+
+        if let rootViewController = UIApplication.shared.delegate?.window??.rootViewController {
+            return rootViewController
+        }
+
+        return UIViewController()
+    }
+  SWIFT
+
+  if content.include?(original) && !content.include?('private static func resolveRootViewController()')
+    content = content.sub(original, replacement)
+    content = content.sub("\n    init(_ rootViewController: UIViewController) {", "#{helper}\n\n    init(_ rootViewController: UIViewController) {")
+    File.write(plugin_file, content)
+  end
+end
+
+target 'Runner' do
+  flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+  target 'RunnerTests' do
+    inherit! :search_paths
+  end
+end
+
+post_install do |installer|
+  installer.pods_project.targets.each do |target|
+    flutter_additional_ios_build_settings(target)
+  end
+  patch_embedded_framework_codesign
+  patch_grpc_xcconfigs
+  patch_pods_runner_xcconfigs
+  patch_flutter_contacts_plugin
+end

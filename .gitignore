@@ -1,0 +1,39 @@
+# Flutter / Dart
+.dart_tool/
+.packages
+.pub/
+build/
+coverage/
+
+# Native generated folders / local config
+android/.gradle/
+android/local.properties
+ios/Flutter/ephemeral/
+ios/Pods/
+linux/flutter/ephemeral/
+macos/Flutter/ephemeral/
+windows/flutter/ephemeral/
+web/.dart_tool/
+
+# Firebase
+.firebase/
+.firebaserc
+google-services.json
+GoogleService-Info.plist
+
+# Functions
+functions/lib/
+functions/node_modules/
+
+# IDE
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# FVM Version Cache
+.fvm/

@@ -1,0 +1,38 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    match /users/{userId} {
+      allow create, read, update: if isOwner(userId);
+      allow delete: if false;
+
+      match /documents/{docId} {
+        allow create, read, update, delete: if isOwner(userId);
+      }
+    }
+
+    match /loanApplications/{applicationId} {
+      allow read: if signedIn() && resource.data.uid == request.auth.uid;
+      allow create, update, delete: if false;
+    }
+
+    match /loans/{loanId} {
+      allow read: if signedIn() && resource.data.uid == request.auth.uid;
+      allow create, update, delete: if false;
+
+      match /repaymentSchedules/{scheduleId} {
+        allow read: if signedIn()
+          && get(/databases/$(database)/documents/loans/$(loanId)).data.uid == request.auth.uid;
+        allow create, update, delete: if false;
+      }
+    }
+  }
+}

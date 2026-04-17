@@ -1,0 +1,31 @@
+name: MoneyNow
+description: MVP online loan app built with Flutter + Firebase.
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.8.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  firebase_core: ^4.6.0
+  firebase_auth: ^6.3.0
+  cloud_firestore: ^6.2.0
+  firebase_storage: ^13.2.0
+  cloud_functions: ^6.1.0
+  crypto: ^3.0.6
+  flutter_riverpod: ^3.3.1
+  flutter_contacts: ^1.1.9+2
+  image_picker: ^1.2.1
+  intl: ^0.20.2
+  uuid: ^4.5.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
