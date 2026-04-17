@@ -833,7 +833,7 @@ class _VerificationMainCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: const Color(0xFFF2FBF7),
+                color: const Color(0xFFFFF3E7),
                 borderRadius: BorderRadius.circular(18),
               ),
               child: Text(

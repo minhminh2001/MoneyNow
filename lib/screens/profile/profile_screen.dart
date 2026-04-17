@@ -264,7 +264,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   Card(
                     color: _loading
                         ? const Color(0xFFFFF7E8)
-                        : const Color(0xFFF2FBF7),
+                        : const Color(0xFFFFF3E7),
                     child: Padding(
                       padding: const EdgeInsets.all(14),
                       child: Column(
@@ -401,7 +401,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
                 const SizedBox(height: 16),
                 Card(
-                  color: const Color(0xFFF2FBF7),
+                  color: const Color(0xFFFFF3E7),
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(

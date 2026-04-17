@@ -17,7 +17,7 @@ Future<void> showAppNoticeDialog(
       final accentColor = isError ? colorScheme.error : colorScheme.primary;
       final softColor = accentColor.withValues(alpha: 0.12);
       final surfaceTint =
-          isError ? const Color(0xFFFFF1F0) : const Color(0xFFF1FBF8);
+          isError ? const Color(0xFFFFF1F0) : const Color(0xFFFFF4EA);
 
       return Center(
         child: Dialog(

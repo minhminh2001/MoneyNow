@@ -15,16 +15,16 @@ class StatusChip extends StatelessWidget {
       case 'paid':
       case 'verified':
       case 'closed':
-        return Colors.green.shade100;
+        return const Color(0xFFFFE3CC);
       case 'reviewing':
       case 'submitted':
       case 'pending':
-        return Colors.orange.shade100;
+        return const Color(0xFFFFEBD7);
       case 'rejected':
       case 'overdue':
         return Colors.red.shade100;
       default:
-        return Colors.blueGrey.shade100;
+        return const Color(0xFFFFF1E6);
     }
   }
 
@@ -35,16 +35,16 @@ class StatusChip extends StatelessWidget {
       case 'paid':
       case 'verified':
       case 'closed':
-        return Colors.green.shade900;
+        return const Color(0xFF9D470D);
       case 'reviewing':
       case 'submitted':
       case 'pending':
-        return Colors.orange.shade900;
+        return const Color(0xFFB85B16);
       case 'rejected':
       case 'overdue':
         return Colors.red.shade900;
       default:
-        return Colors.blueGrey.shade900;
+        return const Color(0xFF9D470D);
     }
   }
 

@@ -352,7 +352,7 @@ class _WarningBanner extends StatelessWidget {
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: const Color(0xFFFFE2A8),
+            color: const Color(0xFFFFD39A),
             borderRadius: BorderRadius.circular(12),
           ),
           child: const Icon(Icons.info_outline),
@@ -387,12 +387,12 @@ class _SummaryGrid extends StatelessWidget {
                         width: 38,
                         height: 38,
                         decoration: BoxDecoration(
-                          color: const Color(0xFFE9F7F7),
+                          color: const Color(0xFFFFF0E4),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: const Icon(
                           Icons.bubble_chart_rounded,
-                          color: Color(0xFF0E7C86),
+                          color: Color(0xFFE46A11),
                         ),
                       ),
                       const SizedBox(height: 14),
@@ -452,15 +452,15 @@ class _HeroGreetingCard extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Color(0xFF0F7E88),
-              Color(0xFF1F9EA4),
-              Color(0xFF58C6B6),
+              Color(0xFFE46A11),
+              Color(0xFFFF8E2B),
+              Color(0xFFFFB15A),
             ],
           ),
           borderRadius: BorderRadius.circular(28),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF0F7E88).withValues(alpha: 0.18),
+              color: const Color(0xFFE46A11).withValues(alpha: 0.18),
               blurRadius: 28,
               offset: const Offset(0, 18),
             ),
@@ -563,9 +563,9 @@ class _FlowOverviewCard extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color(0xFFE9F8F7),
-            Color(0xFFF7FCFF),
-            Color(0xFFFFF5EE),
+            Color(0xFFFFF0E4),
+            Color(0xFFFFF8F2),
+            Color(0xFFFFECDD),
           ],
         ),
         borderRadius: BorderRadius.circular(28),
@@ -584,7 +584,7 @@ class _FlowOverviewCard extends StatelessWidget {
                     width: 46,
                     height: 46,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF12343B),
+                      color: const Color(0xFFB04E15),
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: const Icon(
@@ -617,7 +617,7 @@ class _FlowOverviewCard extends StatelessWidget {
                         minHeight: 10,
                         backgroundColor: const Color(0xFFDDEDF1),
                         valueColor: const AlwaysStoppedAnimation<Color>(
-                          Color(0xFF0E7C86),
+                          Color(0xFFE46A11),
                         ),
                       ),
                     ),
@@ -626,7 +626,7 @@ class _FlowOverviewCard extends StatelessWidget {
                   Text(
                     '$completedStepCount/4',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: const Color(0xFF12343B),
+                          color: const Color(0xFFB04E15),
                         ),
                   ),
                 ],
@@ -646,7 +646,7 @@ class _FlowOverviewCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.78),
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: const Color(0xFFDCEAF1)),
+                  border: Border.all(color: const Color(0xFFF2D9C4)),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -655,7 +655,7 @@ class _FlowOverviewCard extends StatelessWidget {
                       padding: EdgeInsets.only(top: 2),
                       child: Icon(
                         Icons.flag_circle_rounded,
-                        color: Color(0xFF0E7C86),
+                        color: Color(0xFFE46A11),
                         size: 18,
                       ),
                     ),
@@ -726,11 +726,11 @@ class _ActionTile extends StatelessWidget {
                 height: 50,
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [Color(0xFFE9F7F7), Color(0xFFFFF0E9)],
+                    colors: [Color(0xFFFFF0E4), Color(0xFFFFE7D2)],
                   ),
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: Icon(icon, color: const Color(0xFF0E7C86)),
+                child: Icon(icon, color: const Color(0xFFE46A11)),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -774,17 +774,17 @@ class _StepChip extends StatelessWidget {
     final isCurrent = status == _FlowStepStatus.current;
 
     final backgroundColor = isDone
-        ? const Color(0xFFDCF6E9)
+        ? const Color(0xFFFFE4CF)
         : isCurrent
-            ? const Color(0xFF12343B)
+            ? const Color(0xFFB04E15)
             : Colors.white.withValues(alpha: 0.92);
     final borderColor = isDone
-        ? const Color(0xFFA8DEC2)
+        ? const Color(0xFFFFCBA3)
         : isCurrent
-            ? const Color(0xFF12343B)
-            : const Color(0xFFDCEAF1);
+            ? const Color(0xFFB04E15)
+            : const Color(0xFFF2D9C4);
     final textColor = isDone
-        ? const Color(0xFF197A4B)
+        ? const Color(0xFF9D470D)
         : isCurrent
             ? Colors.white
             : const Color(0xFF284257);
@@ -808,7 +808,7 @@ class _StepChip extends StatelessWidget {
                 const Icon(
                   Icons.check_circle_rounded,
                   size: 16,
-                  color: Color(0xFF197A4B),
+                  color: Color(0xFF9D470D),
                 ),
                 const SizedBox(width: 6),
               ] else if (isCurrent) ...[

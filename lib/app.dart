@@ -17,12 +17,12 @@ class LoanApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authStateChangesProvider);
     final baseTextTheme = Typography.material2021().black;
-    const seedColor = Color(0xFF0F8B8D);
+    const seedColor = Color(0xFFE46A11);
     final colorScheme = ColorScheme.fromSeed(
       seedColor: seedColor,
       brightness: Brightness.light,
-      primary: const Color(0xFF0E7C86),
-      secondary: const Color(0xFFFF8A5B),
+      primary: const Color(0xFFE46A11),
+      secondary: const Color(0xFFFFA145),
       surface: Colors.white,
     );
 
@@ -96,7 +96,7 @@ class LoanApp extends ConsumerWidget {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
             side: BorderSide(
-                color: const Color(0xFF0E7C86).withValues(alpha: 0.08)),
+                color: const Color(0xFFE46A11).withValues(alpha: 0.08)),
           ),
         ),
         dividerColor: const Color(0xFFE3EAF2),
@@ -136,7 +136,7 @@ class LoanApp extends ConsumerWidget {
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.all(Radius.circular(18)),
-            borderSide: BorderSide(color: Color(0xFF0E7C86), width: 1.4),
+            borderSide: BorderSide(color: Color(0xFFE46A11), width: 1.4),
           ),
           alignLabelWithHint: true,
           filled: true,
@@ -175,9 +175,9 @@ class SplashScreen extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Color(0xFFE8F7F6),
-              Color(0xFFF6F9FF),
-              Color(0xFFFFF2EA),
+              Color(0xFFFFF1E6),
+              Color(0xFFFFF8F2),
+              Color(0xFFFFE6D5),
             ],
           ),
         ),
@@ -197,12 +197,12 @@ class SplashScreen extends StatelessWidget {
                   height: 84,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [Color(0xFF0E7C86), Color(0xFF29B6B9)],
+                      colors: [Color(0xFFE46A11), Color(0xFFFFA145)],
                     ),
                     borderRadius: BorderRadius.circular(28),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF0E7C86).withValues(alpha: 0.18),
+                        color: const Color(0xFFE46A11).withValues(alpha: 0.18),
                         blurRadius: 28,
                         offset: const Offset(0, 16),
                       ),
