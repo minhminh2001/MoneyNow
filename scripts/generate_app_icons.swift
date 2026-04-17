@@ -66,9 +66,9 @@ func exportIcon(to path: String, size: CGFloat) throws {
   iconPath.addClip()
 
   let colors = [
-    NSColor(calibratedRed: 14/255, green: 124/255, blue: 134/255, alpha: 1).cgColor,
-    NSColor(calibratedRed: 36/255, green: 183/255, blue: 181/255, alpha: 1).cgColor,
-    NSColor(calibratedRed: 255/255, green: 138/255, blue: 91/255, alpha: 1).cgColor,
+    NSColor(calibratedRed: 228/255, green: 106/255, blue: 17/255, alpha: 1).cgColor,
+    NSColor(calibratedRed: 255/255, green: 142/255, blue: 43/255, alpha: 1).cgColor,
+    NSColor(calibratedRed: 255/255, green: 177/255, blue: 90/255, alpha: 1).cgColor,
   ] as CFArray
   let locations: [CGFloat] = [0.0, 0.58, 1.0]
   let colorSpace = CGColorSpaceCreateDeviceRGB()
@@ -116,7 +116,7 @@ func exportIcon(to path: String, size: CGFloat) throws {
     width: size * 0.12,
     height: size * 0.11
   ), xRadius: size * 0.04, yRadius: size * 0.04)
-  NSColor(calibratedRed: 14/255, green: 124/255, blue: 134/255, alpha: 0.22).setFill()
+  NSColor(calibratedRed: 176/255, green: 78/255, blue: 21/255, alpha: 0.22).setFill()
   cutout.fill()
 
   let bolt = NSBezierPath()
@@ -127,7 +127,7 @@ func exportIcon(to path: String, size: CGFloat) throws {
   bolt.line(to: CGPoint(x: size * 0.60, y: size * 0.55))
   bolt.line(to: CGPoint(x: size * 0.51, y: size * 0.55))
   bolt.close()
-  NSColor(calibratedRed: 255/255, green: 187/255, blue: 88/255, alpha: 1).setFill()
+  NSColor(calibratedRed: 255/255, green: 230/255, blue: 179/255, alpha: 1).setFill()
   bolt.fill()
 
   context.restoreGState()
