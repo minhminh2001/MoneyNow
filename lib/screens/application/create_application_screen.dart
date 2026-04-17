@@ -17,7 +17,12 @@ import '../documents/document_upload_screen.dart';
 import '../profile/profile_screen.dart';
 
 class CreateApplicationScreen extends ConsumerStatefulWidget {
-  const CreateApplicationScreen({super.key});
+  const CreateApplicationScreen({
+    super.key,
+    this.initialStep,
+  });
+
+  final int? initialStep;
 
   @override
   ConsumerState<CreateApplicationScreen> createState() =>
@@ -72,7 +77,7 @@ class _CreateApplicationScreenState
     _termController.text =
         draft.termMonths > 0 ? draft.termMonths.toString() : '6';
     _purposeController.text = draft.purpose;
-    _step = draft.currentStep.clamp(1, 4);
+    _step = (widget.initialStep ?? draft.currentStep).clamp(1, 4);
     _hydrated = true;
   }
 

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/widgets/app_notice_dialog.dart';
 import '../../core/widgets/status_chip.dart';
 import '../../models/app_user.dart';
 import '../../providers/app_providers.dart';
@@ -34,7 +36,15 @@ class HomeScreen extends ConsumerWidget {
       profile: profile,
       documentCount: documents.length,
     );
+    final completedStepCount = flowSteps
+        .where((step) => step.status == _FlowStepStatus.done)
+        .length;
     final nextStep = _nextStepLabel(
+      draft: draft,
+      lightVerificationComplete: profile?.isLightVerificationComplete == true,
+      documentCount: documents.length,
+    );
+    final recommendedAction = _recommendedActionLabel(
       draft: draft,
       lightVerificationComplete: profile?.isLightVerificationComplete == true,
       documentCount: documents.length,
@@ -74,7 +84,42 @@ class HomeScreen extends ConsumerWidget {
             _FlowOverviewCard(
               nextStep: nextStep,
               hasDraft: hasDraft,
-              flowSteps: flowSteps,
+              flowSteps: flowSteps
+                  .map(
+                    (step) => step.copyWith(
+                      onTap: () async {
+                        final blockedMessage = _blockedStepMessage(
+                          step: step.step,
+                          draft: draft,
+                          profile: profile,
+                          documentCount: documents.length,
+                        );
+                        if (blockedMessage != null) {
+                          await HapticFeedback.lightImpact();
+                          if (!context.mounted) return;
+                          await showAppNoticeDialog(
+                            context,
+                            title: 'Chưa thể vào bước này',
+                            message: blockedMessage,
+                            isError: true,
+                          );
+                          return;
+                        }
+
+                        if (!context.mounted) return;
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => CreateApplicationScreen(
+                              initialStep: step.step,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  )
+                  .toList(),
+              completedStepCount: completedStepCount,
+              recommendedAction: recommendedAction,
               onTap: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(
@@ -183,6 +228,52 @@ String _nextStepLabel({
   return 'Bạn đã sẵn sàng nộp hồ sơ vay';
 }
 
+String _recommendedActionLabel({
+  required LoanDraft draft,
+  required bool lightVerificationComplete,
+  required int documentCount,
+}) {
+  if (draft.requestedAmount <= 0 || draft.purpose.isEmpty) {
+    return 'Điền SĐT, số tiền vay và mục đích vay để mở khóa bước hạn mức.';
+  }
+  if (draft.currentStep < 3) {
+    return 'Xem kết quả sơ bộ để biết hạn mức tạm tính của bạn.';
+  }
+  if (!lightVerificationComplete) {
+    return 'Hoàn tất hồ sơ cá nhân và đồng bộ danh bạ để mở khóa bước nộp hồ sơ.';
+  }
+  if (documentCount < 3) {
+    return 'Tải đủ CCCD mặt trước, mặt sau và ảnh selfie để hoàn tất KYC.';
+  }
+  return 'Bạn đã đủ điều kiện để vào bước 4 và nộp hồ sơ vay.';
+}
+
+String? _blockedStepMessage({
+  required int step,
+  required LoanDraft draft,
+  required AppUser? profile,
+  required int documentCount,
+}) {
+  final quickInfoDone = draft.requestedAmount > 0 && draft.purpose.isNotEmpty;
+  final preApprovalReady = quickInfoDone;
+  final lightVerificationDone = profile?.isLightVerificationComplete == true;
+
+  if (step == 1) return null;
+  if (step == 2 && !quickInfoDone) {
+    return 'Bạn cần hoàn tất bước 1: khai báo nhanh trước khi xem hạn mức tạm tính.';
+  }
+  if (step == 3 && !preApprovalReady) {
+    return 'Bạn cần hoàn tất bước 1 và xem kết quả sơ bộ ở bước 2 trước khi sang xác minh nhẹ.';
+  }
+  if (step == 4 && !lightVerificationDone) {
+    return 'Bạn cần hoàn tất bước 3: hồ sơ cá nhân và đồng bộ danh bạ bắt buộc trước khi sang bước nộp hồ sơ.';
+  }
+  if (step == 4 && documentCount >= 3) {
+    return null;
+  }
+  return null;
+}
+
 List<_FlowStepData> _buildFlowSteps({
   required LoanDraft draft,
   required AppUser? profile,
@@ -216,18 +307,22 @@ List<_FlowStepData> _buildFlowSteps({
 
   return [
     _FlowStepData(
+      step: 1,
       text: '1. Khai báo nhanh',
       status: statusFor(step: 1, done: quickInfoDone),
     ),
     _FlowStepData(
+      step: 2,
       text: '2. Xem hạn mức',
       status: statusFor(step: 2, done: preApprovalDone),
     ),
     _FlowStepData(
+      step: 3,
       text: '3. Xác minh nhẹ',
       status: statusFor(step: 3, done: lightVerificationDone),
     ),
     _FlowStepData(
+      step: 4,
       text: '4. Nộp hồ sơ',
       status: statusFor(step: 4, done: mainVerificationDone),
     ),
@@ -437,12 +532,16 @@ class _FlowOverviewCard extends StatelessWidget {
     required this.nextStep,
     required this.hasDraft,
     required this.flowSteps,
+    required this.completedStepCount,
+    required this.recommendedAction,
     required this.onTap,
   });
 
   final String nextStep;
   final bool hasDraft;
   final List<_FlowStepData> flowSteps;
+  final int completedStepCount;
+  final String recommendedAction;
   final VoidCallback onTap;
 
   @override
@@ -499,6 +598,71 @@ class _FlowOverviewCard extends StatelessWidget {
                 style: Theme.of(context).textTheme.bodyLarge,
               ),
               const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(999),
+                      child: LinearProgressIndicator(
+                        value: completedStepCount / 4,
+                        minHeight: 10,
+                        backgroundColor: const Color(0xFFDDEDF1),
+                        valueColor: const AlwaysStoppedAnimation<Color>(
+                          Color(0xFF0E7C86),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    '$completedStepCount/4',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: const Color(0xFF12343B),
+                        ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                completedStepCount == 4
+                    ? 'Bạn đã hoàn tất toàn bộ funnel vay.'
+                    : 'Hoàn tất $completedStepCount trên 4 bước để sẵn sàng nộp hồ sơ.',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: const Color(0xFF617487),
+                    ),
+              ),
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.78),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: const Color(0xFFDCEAF1)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.only(top: 2),
+                      child: Icon(
+                        Icons.flag_circle_rounded,
+                        color: Color(0xFF0E7C86),
+                        size: 18,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        recommendedAction,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: const Color(0xFF284257),
+                            ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -507,6 +671,7 @@ class _FlowOverviewCard extends StatelessWidget {
                       (step) => _StepChip(
                         text: step.text,
                         status: step.status,
+                        onTap: step.onTap,
                       ),
                     )
                     .toList(),
@@ -587,10 +752,12 @@ class _StepChip extends StatelessWidget {
   const _StepChip({
     required this.text,
     required this.status,
+    this.onTap,
   });
 
   final String text;
   final _FlowStepStatus status;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -613,39 +780,54 @@ class _StepChip extends StatelessWidget {
             ? Colors.white
             : const Color(0xFF284257);
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: backgroundColor,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: borderColor),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (isDone) ...[
-            const Icon(
-              Icons.check_circle_rounded,
-              size: 16,
-              color: Color(0xFF197A4B),
-            ),
-            const SizedBox(width: 6),
-          ] else if (isCurrent) ...[
-            const Icon(
-              Icons.radio_button_checked_rounded,
-              size: 16,
-              color: Colors.white,
-            ),
-            const SizedBox(width: 6),
-          ],
-          Text(
-            text,
-            style: TextStyle(
-              color: textColor,
-              fontWeight: isCurrent || isDone ? FontWeight.w700 : FontWeight.w500,
-            ),
+        child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: backgroundColor,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: borderColor),
           ),
-        ],
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (isDone) ...[
+                const Icon(
+                  Icons.check_circle_rounded,
+                  size: 16,
+                  color: Color(0xFF197A4B),
+                ),
+                const SizedBox(width: 6),
+              ] else if (isCurrent) ...[
+                const Icon(
+                  Icons.radio_button_checked_rounded,
+                  size: 16,
+                  color: Colors.white,
+                ),
+                const SizedBox(width: 6),
+              ] else if (status == _FlowStepStatus.upcoming) ...[
+                const Icon(
+                  Icons.lock_outline_rounded,
+                  size: 16,
+                  color: Color(0xFF6B7D8E),
+                ),
+                const SizedBox(width: 6),
+              ],
+              Text(
+                text,
+                style: TextStyle(
+                  color: textColor,
+                  fontWeight:
+                      isCurrent || isDone ? FontWeight.w700 : FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -653,12 +835,30 @@ class _StepChip extends StatelessWidget {
 
 class _FlowStepData {
   const _FlowStepData({
+    required this.step,
     required this.text,
     required this.status,
+    this.onTap,
   });
 
+  final int step;
   final String text;
   final _FlowStepStatus status;
+  final VoidCallback? onTap;
+
+  _FlowStepData copyWith({
+    int? step,
+    String? text,
+    _FlowStepStatus? status,
+    VoidCallback? onTap,
+  }) {
+    return _FlowStepData(
+      step: step ?? this.step,
+      text: text ?? this.text,
+      status: status ?? this.status,
+      onTap: onTap ?? this.onTap,
+    );
+  }
 }
 
 enum _FlowStepStatus {
