@@ -8,8 +8,10 @@ import '../../models/app_user.dart';
 import '../../providers/app_providers.dart';
 import '../../models/loan_draft.dart';
 import '../application/application_list_screen.dart';
+import '../charts/loan_charts_screen.dart';
 import '../documents/document_upload_screen.dart';
 import '../loan/loan_list_screen.dart';
+import '../notifications/notifications_screen.dart';
 import '../profile/profile_screen.dart';
 import '../application/create_application_screen.dart';
 
@@ -60,10 +62,27 @@ class HomeScreen extends ConsumerWidget {
         ? profile!.fullName
         : (user?.email ?? 'Người dùng');
 
+    final unreadCount = ref.watch(unreadNotificationCountProvider);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Money Now'),
         actions: [
+          IconButton(
+            tooltip: 'Thông báo',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                    builder: (_) => const NotificationsScreen()),
+              );
+            },
+            icon: Badge(
+              label: Text('$unreadCount'),
+              isLabelVisible: unreadCount > 0,
+              backgroundColor: const Color(0xFFE46A11),
+              child: const Icon(Icons.notifications_outlined),
+            ),
+          ),
           IconButton(
             tooltip: 'Đăng xuất',
             onPressed: () => ref.read(authRepositoryProvider).signOut(),
@@ -197,6 +216,17 @@ class HomeScreen extends ConsumerWidget {
                 Navigator.of(context).push(
                   MaterialPageRoute(
                       builder: (_) => const ApplicationListScreen()),
+                );
+              },
+            ),
+            _ActionTile(
+              title: 'Biểu đồ tài chính',
+              subtitle: 'Tiến độ trả nợ và lịch sử khoản vay',
+              icon: Icons.area_chart_rounded,
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                      builder: (_) => const LoanChartsScreen()),
                 );
               },
             ),

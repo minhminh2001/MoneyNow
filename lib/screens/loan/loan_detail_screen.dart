@@ -7,6 +7,7 @@ import '../../core/widgets/status_chip.dart';
 import '../../models/loan.dart';
 import '../../models/repayment.dart';
 import '../../providers/app_providers.dart';
+import '../charts/loan_charts_screen.dart';
 
 class LoanDetailScreen extends ConsumerStatefulWidget {
   const LoanDetailScreen({
@@ -94,6 +95,16 @@ class _LoanDetailScreenState extends ConsumerState<LoanDetailScreen> {
           _InfoRow(
             label: 'Kỳ tiếp theo',
             value: AppFormatters.date(widget.loan.nextDueDate),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => LoanChartsScreen(initialLoan: widget.loan),
+              ),
+            ),
+            icon: const Icon(Icons.bar_chart_rounded, size: 18),
+            label: const Text('Xem biểu đồ'),
           ),
           const SizedBox(height: 12),
           Text(
