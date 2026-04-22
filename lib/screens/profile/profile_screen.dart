@@ -9,6 +9,7 @@ import '../../core/services/contact_sync_service.dart';
 import '../../core/utils/input_formatters.dart';
 import '../../core/widgets/app_notice_dialog.dart';
 import '../../models/app_user.dart';
+import '../../models/phone_contact.dart';
 import '../../providers/app_providers.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -30,9 +31,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   final _monthlyIncomeController = TextEditingController();
 
   bool _loading = false;
-  bool _syncingContacts = false;
+  bool _preparingContacts = false;
+  bool _backgroundSyncingContacts = false;
   bool _hydrated = false;
   String? _saveStatusText;
+  String? _contactsSyncStatusText;
+  int _contactsSyncProcessed = 0;
+  int _contactsSyncTotal = 0;
+  DateTime? _contactsSyncStartedAt;
   bool _submitted = false;
 
   @override
@@ -174,71 +180,125 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
   }
 
-  Future<void> _syncContacts() async {
+  void _startContactsSync() {
     final firebaseUser = ref.read(currentUserProvider);
-    if (firebaseUser == null) return;
+    if (firebaseUser == null || _preparingContacts || _backgroundSyncingContacts) {
+      return;
+    }
 
-    setState(() => _syncingContacts = true);
+    setState(() {
+      _contactsSyncStartedAt = DateTime.now();
+      _preparingContacts = true;
+      _backgroundSyncingContacts = false;
+      _contactsSyncProcessed = 0;
+      _contactsSyncTotal = ContactSyncService.maxContactsToSync;
+      _contactsSyncStatusText = 'Bắt đầu đồng bộ tối đa 100 liên hệ...';
+    });
+    unawaited(_syncContacts(firebaseUser.uid));
+  }
 
+  Future<void> _syncContacts(String uid) async {
     try {
-      final result = await _contactSyncService
-          .requestAndReadContacts()
-          .timeout(const Duration(seconds: 20));
+      final result = await _contactSyncService.requestAndReadContacts(
+        onProgress: (processed, total, message) {
+          if (!mounted) return;
+          setState(() {
+            _contactsSyncProcessed = processed;
+            _contactsSyncTotal = total;
+            _contactsSyncStatusText = message;
+          });
+        },
+      );
       if (!result.granted) {
         if (!mounted) return;
-        await showAppNoticeDialog(
-          context,
-          title: 'Không thể đồng bộ danh bạ',
-          message: result.errorMessage ??
-              'Bạn cần cho phép truy cập danh bạ để hoàn tất điều kiện xét duyệt hồ sơ vay.',
-          isError: true,
-        );
+        setState(() {
+          _contactsSyncStatusText = result.errorMessage ??
+              'Bạn cần cho phép truy cập danh bạ để hoàn tất điều kiện xét duyệt hồ sơ vay.';
+        });
         return;
       }
 
       if (result.contacts.isEmpty) {
         if (!mounted) return;
-        await showAppNoticeDialog(
-          context,
-          title: 'Danh bạ trống',
-          message:
-              'Không tìm thấy liên hệ nào có số điện thoại để đồng bộ. Vui lòng kiểm tra lại danh bạ trên máy.',
-          isError: true,
-        );
+        setState(() {
+          _contactsSyncStatusText =
+              'Không tìm thấy liên hệ nào có số điện thoại trong 100 liên hệ đầu tiên.';
+        });
         return;
       }
 
-      await ref
-          .read(profileRepositoryProvider)
-          .savePhoneContacts(
-            uid: firebaseUser.uid,
-            contacts: result.contacts,
-          )
-          .timeout(const Duration(seconds: 25));
-
       if (!mounted) return;
-      await showAppNoticeDialog(
-        context,
-        title: 'Đồng bộ thành công',
-        message:
-            'Đã lưu ${result.contacts.length} liên hệ từ danh bạ điện thoại dưới dạng bảo mật. Đây là điều kiện bắt buộc để xét duyệt vay.',
+      setState(() {
+        _preparingContacts = false;
+        _backgroundSyncingContacts = true;
+        _contactsSyncProcessed = 0;
+        _contactsSyncTotal = result.contacts.length;
+        _contactsSyncStatusText =
+            'Đã chuẩn bị ${result.contacts.length} liên hệ. Đang đồng bộ nền...';
+      });
+      unawaited(_saveContactsInBackground(uid, result.contacts));
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _contactsSyncStatusText = 'Không thể đọc hoặc lưu danh bạ: $error';
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _preparingContacts = false);
+      }
+    }
+  }
+
+  Future<void> _saveContactsInBackground(
+    String uid,
+    List<PhoneContact> contacts,
+  ) async {
+    try {
+      await ref.read(profileRepositoryProvider).savePhoneContacts(
+        uid: uid,
+        contacts: contacts,
+        onProgress: (processed, total, message) {
+          if (!mounted) return;
+          setState(() {
+            _contactsSyncProcessed = processed;
+            _contactsSyncTotal = total;
+            _contactsSyncStatusText = message;
+          });
+        },
       );
     } catch (error) {
       if (!mounted) return;
-      final message = error is TimeoutException
-          ? 'Đồng bộ danh bạ mất quá nhiều thời gian. Vui lòng thử lại, hoặc giảm bớt số lượng liên hệ trên máy rồi thử tiếp.'
-          : 'Không thể đọc hoặc lưu danh bạ: $error';
-      await showAppNoticeDialog(
-        context,
-        title: 'Đồng bộ thất bại',
-        message: message,
-        isError: true,
-      );
+      setState(() {
+        _contactsSyncStatusText = 'Đồng bộ nền thất bại: $error';
+      });
     } finally {
       if (mounted) {
-        setState(() => _syncingContacts = false);
+        setState(() => _backgroundSyncingContacts = false);
       }
     }
+  }
+
+  void _maybeFinalizeContactsSync(AppUser? profile) {
+    if (!_backgroundSyncingContacts || profile == null) return;
+    final syncedAt = profile.contactsSyncedAt;
+    final startedAt = _contactsSyncStartedAt;
+    if (syncedAt == null || startedAt == null || !profile.hasSyncedContacts) {
+      return;
+    }
+    if (syncedAt.isBefore(startedAt.subtract(const Duration(seconds: 1)))) {
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_backgroundSyncingContacts) return;
+      setState(() {
+        _backgroundSyncingContacts = false;
+        _contactsSyncProcessed = profile.contactsSyncCount;
+        _contactsSyncTotal = profile.contactsSyncCount;
+        _contactsSyncStatusText =
+            'Đã đồng bộ ${profile.contactsSyncCount} liên hệ thành công.';
+      });
+    });
   }
 
   @override
@@ -247,6 +307,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final currentProfile = profileAsync.value;
 
     _hydrate(currentProfile);
+    _maybeFinalizeContactsSync(currentProfile);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Cập nhật hồ sơ')),
@@ -417,17 +478,51 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         ),
                         const SizedBox(height: 10),
                         Text(
-                          currentProfile?.hasSyncedContacts == true
+                          (_preparingContacts || _backgroundSyncingContacts)
+                              ? 'Đang xử lý đồng bộ danh bạ. Bạn vẫn có thể tiếp tục thao tác trong app.'
+                              : currentProfile?.hasSyncedContacts == true
                               ? 'Đã đồng bộ ${currentProfile!.contactsSyncCount} liên hệ'
                               : 'Chưa đồng bộ danh bạ. Hồ sơ sẽ chưa đủ điều kiện duyệt vay.',
                           style: Theme.of(context).textTheme.bodyMedium,
                         ),
+                        if (_contactsSyncStatusText != null) ...[
+                          const SizedBox(height: 10),
+                          Text(
+                            _contactsSyncStatusText!,
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                        ],
+                        if (_preparingContacts || _backgroundSyncingContacts) ...[
+                          const SizedBox(height: 10),
+                          LinearProgressIndicator(
+                            value: _backgroundSyncingContacts
+                                ? null
+                                : _contactsSyncTotal > 0
+                                ? (_contactsSyncProcessed / _contactsSyncTotal)
+                                    .clamp(0, 1)
+                                : null,
+                            borderRadius: BorderRadius.circular(999),
+                            minHeight: 8,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            _backgroundSyncingContacts
+                                ? 'Đang ghi dữ liệu nền lên hệ thống...'
+                                : 'Tiến độ: $_contactsSyncProcessed/${_contactsSyncTotal == 0 ? ContactSyncService.maxContactsToSync : _contactsSyncTotal} liên hệ',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
                         const SizedBox(height: 12),
                         FilledButton.tonal(
-                          onPressed: _syncingContacts ? null : _syncContacts,
+                          onPressed:
+                              (_preparingContacts || _backgroundSyncingContacts)
+                                  ? null
+                                  : _startContactsSync,
                           child: Text(
-                            _syncingContacts
-                                ? 'Đang đồng bộ danh bạ...'
+                            _preparingContacts
+                                ? 'Đang chuẩn bị danh bạ...'
+                                : _backgroundSyncingContacts
+                                    ? 'Đang đồng bộ nền...'
                                 : 'Cho phép và đồng bộ danh bạ',
                           ),
                         ),

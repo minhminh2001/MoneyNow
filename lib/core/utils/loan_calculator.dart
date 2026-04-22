@@ -1,55 +1,37 @@
-import 'dart:math' as math;
+import '../constants/loan_policy.dart';
 
 class LoanEstimate {
   const LoanEstimate({
-    required this.monthlyInstallment,
+    required this.weeklyInstallment,
     required this.totalInterest,
     required this.totalPayable,
   });
 
-  final double monthlyInstallment;
+  final double weeklyInstallment;
   final double totalInterest;
   final double totalPayable;
 }
 
 class LoanCalculator {
-  static const double monthlyInterestRate = 0.018;
-
   static LoanEstimate estimate({
     required double principal,
-    required int termMonths,
+    required int termWeeks,
   }) {
-    if (principal <= 0 || termMonths <= 0) {
+    if (principal <= 0 || termWeeks <= 0) {
       return const LoanEstimate(
-        monthlyInstallment: 0,
+        weeklyInstallment: 0,
         totalInterest: 0,
         totalPayable: 0,
       );
     }
 
-    final rate = monthlyInterestRate;
-    final rawMonthlyInstallment = rate == 0
-        ? principal / termMonths
-        : principal * rate / (1 - math.pow(1 + rate, -termMonths));
-    final monthlyInstallment = rawMonthlyInstallment.roundToDouble();
-
-    var remainingBalance = principal;
-    var totalInterest = 0.0;
-
-    for (var installmentNo = 1; installmentNo <= termMonths; installmentNo += 1) {
-      final interestAmount = (remainingBalance * rate).roundToDouble();
-      final principalAmount = installmentNo == termMonths
-          ? remainingBalance.roundToDouble()
-          : math.max(0, monthlyInstallment - interestAmount).roundToDouble();
-      remainingBalance =
-          math.max(0, remainingBalance - principalAmount).roundToDouble();
-      totalInterest += interestAmount;
-    }
-
+    final totalInterest =
+        (principal * LoanPolicy.fixedInterestRate).roundToDouble();
     final totalPayable = principal + totalInterest;
+    final weeklyInstallment = (totalPayable / termWeeks).roundToDouble();
 
     return LoanEstimate(
-      monthlyInstallment: monthlyInstallment,
+      weeklyInstallment: weeklyInstallment,
       totalInterest: totalInterest.roundToDouble(),
       totalPayable: totalPayable.roundToDouble(),
     );

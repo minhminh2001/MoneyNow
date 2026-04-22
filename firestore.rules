@@ -17,11 +17,17 @@ service cloud.firestore {
       match /documents/{docId} {
         allow create, read, update, delete: if isOwner(userId);
       }
+
+      match /phoneContacts/{docId} {
+        allow create, read, update, delete: if isOwner(userId);
+      }
     }
 
     match /loanApplications/{applicationId} {
       allow read: if signedIn() && resource.data.uid == request.auth.uid;
-      allow create, update, delete: if false;
+      allow create: if signedIn()
+        && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if false;
     }
 
     match /loans/{loanId} {

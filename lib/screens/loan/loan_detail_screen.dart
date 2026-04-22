@@ -80,14 +80,21 @@ class _LoanDetailScreenState extends ConsumerState<LoanDetailScreen> {
               label: 'Gốc vay',
               value: AppFormatters.currency(widget.loan.principal)),
           _InfoRow(
-            label: 'Lãi suất tháng',
+            label: 'Lãi suất cố định',
             value:
-                '${(widget.loan.interestRateMonthly * 100).toStringAsFixed(2)}%',
+                '${(widget.loan.interestRate * 100).toStringAsFixed(0)}%',
           ),
-          _InfoRow(label: 'Kỳ hạn', value: '${widget.loan.termMonths} tháng'),
           _InfoRow(
-            label: 'Trả hằng tháng',
-            value: AppFormatters.currency(widget.loan.monthlyInstallment),
+            label: 'Kỳ hạn',
+            value: '${widget.loan.termWeeks} tuần (${widget.loan.termDays} ngày)',
+          ),
+          _InfoRow(
+            label: 'Trả hằng tuần',
+            value: AppFormatters.currency(widget.loan.weeklyInstallment),
+          ),
+          _InfoRow(
+            label: 'Phí phạt quá hạn',
+            value: AppFormatters.currency(widget.loan.overduePenaltyFee),
           ),
           _InfoRow(
               label: 'Ngày tạo',
@@ -129,7 +136,7 @@ class _LoanDetailScreenState extends ConsumerState<LoanDetailScreen> {
                     child: ListTile(
                       title: Text('Kỳ #${repayment.installmentNo}'),
                       subtitle: Text(
-                        'Hạn: ${AppFormatters.date(repayment.dueDate)}\nSố tiền: ${AppFormatters.currency(repayment.amount)}',
+                        'Hạn: ${AppFormatters.date(repayment.dueDate)}\nGốc + lãi: ${AppFormatters.currency(repayment.amount)}\nPhí phạt quá hạn: ${AppFormatters.currency(repayment.overduePenaltyFee)}\nTổng cần trả: ${AppFormatters.currency(repayment.totalDue)}',
                       ),
                       isThreeLine: true,
                       trailing: repayment.status == 'paid'

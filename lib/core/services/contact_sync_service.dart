@@ -20,7 +20,11 @@ class ContactSyncResult {
 }
 
 class ContactSyncService {
-  Future<ContactSyncResult> requestAndReadContacts() async {
+  static const int maxContactsToSync = 100;
+
+  Future<ContactSyncResult> requestAndReadContacts({
+    void Function(int processed, int total, String message)? onProgress,
+  }) async {
     if (!_isSupportedPlatform) {
       return const ContactSyncResult(
         contacts: <PhoneContact>[],
@@ -41,9 +45,43 @@ class ContactSyncService {
         );
       }
 
-      final contacts = await FlutterContacts.getContacts(withProperties: true);
-      final mappedContacts =
-          contacts.map(_mapContact).whereType<PhoneContact>().toList();
+      onProgress?.call(0, maxContactsToSync, 'Đang đọc danh sách danh bạ...');
+      final lightweightContacts = await FlutterContacts.getContacts(
+        sorted: false,
+      );
+      final selectedContacts = lightweightContacts.take(maxContactsToSync).toList();
+      final mappedContacts = <PhoneContact>[];
+
+      for (var index = 0; index < selectedContacts.length; index += 1) {
+        final lightweightContact = selectedContacts[index];
+        onProgress?.call(
+          index,
+          selectedContacts.length,
+          'Đang xử lý liên hệ ${index + 1}/${selectedContacts.length}...',
+        );
+
+        final detailedContact = await FlutterContacts.getContact(
+          lightweightContact.id,
+          withProperties: true,
+          withThumbnail: false,
+          withPhoto: false,
+        );
+
+        if (detailedContact == null) {
+          continue;
+        }
+
+        final mappedContact = _mapContact(detailedContact);
+        if (mappedContact != null) {
+          mappedContacts.add(mappedContact);
+        }
+      }
+
+      onProgress?.call(
+        selectedContacts.length,
+        selectedContacts.length,
+        'Đã chuẩn bị ${mappedContacts.length} liên hệ để đồng bộ.',
+      );
 
       return ContactSyncResult(
         contacts: mappedContacts,

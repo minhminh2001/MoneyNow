@@ -38,7 +38,7 @@ class LoanChartsScreen extends ConsumerWidget {
             const SizedBox(height: 16),
             _ChartCard(
               title: 'Tiến độ trả nợ',
-              subtitle: '${loan.termMonths} kỳ · ${AppFormatters.currency(loan.principal)}',
+              subtitle: '${loan.termWeeks} kỳ tuần · ${AppFormatters.currency(loan.principal)}',
               icon: Icons.donut_large_rounded,
               child: schedules.isEmpty
                   ? const _EmptyChart()
@@ -344,7 +344,7 @@ class _BalanceLineChart extends StatelessWidget {
     return LineChart(
       LineChartData(
         minX: 0,
-        maxX: loan.termMonths.toDouble(),
+        maxX: loan.termWeeks.toDouble(),
         minY: 0,
         maxY: maxY,
         gridData: FlGridData(
@@ -372,7 +372,7 @@ class _BalanceLineChart extends StatelessWidget {
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
-              interval: (loan.termMonths / 4).ceilToDouble(),
+              interval: (loan.termWeeks / 4).ceilToDouble(),
               getTitlesWidget: (v, _) => Text(
                 v == 0 ? 'Đầu' : 'Kỳ ${v.toInt()}',
                 style: const TextStyle(fontSize: 10, color: Color(0xFF8A9BAE)),

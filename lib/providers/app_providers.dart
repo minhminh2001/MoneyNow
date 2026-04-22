@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -19,19 +20,22 @@ import '../repositories/profile_repository.dart';
 import '../repositories/storage_repository.dart';
 
 final firebaseAuthProvider = Provider<FirebaseAuth>((ref) {
-  return FirebaseAuth.instance;
+  return FirebaseAuth.instanceFor(app: Firebase.app());
 });
 
 final firestoreProvider = Provider<FirebaseFirestore>((ref) {
-  return FirebaseFirestore.instance;
+  return FirebaseFirestore.instanceFor(app: Firebase.app());
 });
 
 final storageProvider = Provider<FirebaseStorage>((ref) {
-  return FirebaseStorage.instance;
+  return FirebaseStorage.instanceFor(app: Firebase.app());
 });
 
 final functionsProvider = Provider<FirebaseFunctions>((ref) {
-  return FirebaseFunctions.instanceFor(region: 'asia-southeast1');
+  return FirebaseFunctions.instanceFor(
+    app: Firebase.app(),
+    region: 'asia-southeast1',
+  );
 });
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
@@ -53,6 +57,7 @@ final loanRepositoryProvider = Provider<LoanRepository>((ref) {
   return LoanRepository(
     firestore: ref.watch(firestoreProvider),
     functions: ref.watch(functionsProvider),
+    auth: ref.watch(firebaseAuthProvider),
   );
 });
 

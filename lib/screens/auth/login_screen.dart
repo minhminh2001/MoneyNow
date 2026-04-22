@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/widgets/app_notice_dialog.dart';
 import '../../providers/app_providers.dart';
+import '../../repositories/auth_repository.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -79,7 +80,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       await showAppNoticeDialog(
         context,
         title: 'Đăng nhập thất bại',
-        message: 'Không thể đăng nhập: $error',
+        message: translateAuthError(error),
         isError: true,
       );
     } finally {

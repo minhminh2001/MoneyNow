@@ -31,7 +31,7 @@ class ApplicationListScreen extends ConsumerWidget {
                 child: ListTile(
                   title: Text(AppFormatters.currency(application.amount)),
                   subtitle: Text(
-                    '${application.termMonths} tháng • ${AppFormatters.dateTime(application.createdAt)}',
+                    '${application.termWeeks} tuần • ${AppFormatters.dateTime(application.createdAt)}',
                   ),
                   trailing: StatusChip(status: application.status),
                   onTap: () {

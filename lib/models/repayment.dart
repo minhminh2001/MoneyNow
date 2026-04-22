@@ -11,6 +11,8 @@ class Repayment {
     required this.interestAmount,
     required this.openingBalance,
     required this.closingBalance,
+    required this.overduePenaltyFee,
+    required this.totalDue,
     required this.paidAmount,
     required this.status,
     required this.paidAt,
@@ -36,6 +38,8 @@ class Repayment {
   /// Dư nợ cuối kỳ (sau khi thanh toán) — dùng để vẽ line chart.
   final double closingBalance;
 
+  final double overduePenaltyFee;
+  final double totalDue;
   final double paidAmount;
   final String status;
   final DateTime? paidAt;
@@ -53,6 +57,16 @@ class Repayment {
       interestAmount: readDouble(map['interestAmount']),
       openingBalance: readDouble(map['openingBalance']),
       closingBalance: readDouble(map['closingBalance']),
+      overduePenaltyFee: () {
+        final value = readDouble(map['overduePenaltyFee']);
+        if (value > 0) return value;
+        return readDouble(map['lateFeeAmount']);
+      }(),
+      totalDue: () {
+        final value = readDouble(map['totalDue']);
+        if (value > 0) return value;
+        return readDouble(map['amount']) + readDouble(map['lateFeeAmount']);
+      }(),
       paidAmount: readDouble(map['paidAmount']),
       status: readString(map['status']),
       paidAt: readDateTime(map['paidAt']),
@@ -61,4 +75,3 @@ class Repayment {
     );
   }
 }
-

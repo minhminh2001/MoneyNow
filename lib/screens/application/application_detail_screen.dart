@@ -52,10 +52,21 @@ class ApplicationDetailScreen extends StatelessWidget {
           _InfoRow(
               label: 'Số tiền vay',
               value: AppFormatters.currency(application.amount)),
-          _InfoRow(label: 'Kỳ hạn', value: '${application.termMonths} tháng'),
           _InfoRow(
-            label: 'Trả hằng tháng',
-            value: AppFormatters.currency(application.monthlyInstallment),
+            label: 'Kỳ hạn',
+            value: '${application.termWeeks} tuần (${application.termWeeks * 7} ngày)',
+          ),
+          _InfoRow(
+            label: 'Trả hằng tuần',
+            value: AppFormatters.currency(application.weeklyInstallment),
+          ),
+          _InfoRow(
+            label: 'Lãi suất cố định',
+            value: '${(application.interestRate * 100).toStringAsFixed(0)}%',
+          ),
+          _InfoRow(
+            label: 'Phí phạt quá hạn',
+            value: AppFormatters.currency(application.overduePenaltyFee),
           ),
           _InfoRow(
             label: 'Thu nhập khai báo',

@@ -31,7 +31,7 @@ class LoanListScreen extends ConsumerWidget {
                 child: ListTile(
                   title: Text(AppFormatters.currency(loan.principal)),
                   subtitle: Text(
-                    'Trả ${AppFormatters.currency(loan.monthlyInstallment)}/tháng',
+                    'Trả ${AppFormatters.currency(loan.weeklyInstallment)}/tuần',
                   ),
                   trailing: StatusChip(status: loan.status),
                   onTap: () {

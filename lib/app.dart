@@ -258,22 +258,22 @@ class FirebaseSetupScreen extends StatelessWidget {
             child: ListView(
               children: [
                 const Text(
-                  'Dự án này đang dùng file `firebase_options.dart` tạm thời.',
+                  'Ứng dụng chưa khởi tạo được Firebase.',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 12),
                 const Text(
-                  'Các bước cần làm:',
+                  'Cách xử lý thường gặp:',
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                    '1. flutter create . --platforms=android,ios,web --overwrite'),
-                const Text('2. flutter pub get'),
-                const Text('3. flutterfire configure'),
-                const Text('4. firebase use --add'),
-                const Text('5. cd functions && npm install && npm run build'),
+                    '1. Android: kiểm tra `android/app/google-services.json`'),
                 const Text(
-                    '6. firebase deploy --only firestore,storage,functions'),
+                    '2. iOS: kiểm tra `ios/Runner/GoogleService-Info.plist` và bundle id phải khớp'),
+                const Text(
+                    '3. Nếu vừa thêm file cấu hình, hãy Clean Build Folder rồi chạy lại'),
+                const Text(
+                    '4. Nếu dùng Firestore, đảm bảo project đã tạo database và deploy rules/indexes'),
                 const SizedBox(height: 16),
                 Text(
                   'Chi tiết lỗi khởi tạo: $errorText',

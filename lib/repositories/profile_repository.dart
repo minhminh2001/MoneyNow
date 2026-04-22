@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 import '../models/app_user.dart';
 import '../models/loan_draft.dart';
@@ -9,7 +10,6 @@ class ProfileRepository {
   ProfileRepository(this._firestore);
 
   final FirebaseFirestore _firestore;
-  static const int _contactsBatchSize = 200;
 
   DocumentReference<Map<String, dynamic>> _userRef(String uid) {
     return _firestore.collection('users').doc(uid);
@@ -51,13 +51,18 @@ class ProfileRepository {
   Stream<LoanDraft> streamLoanDraft(String uid) {
     return _userRef(uid).snapshots().map((snapshot) {
       final data = snapshot.data();
-      if (data == null || data['loanDraft'] == null) {
+      final rawDraft = data?['loanDraft'];
+      if (data == null || rawDraft == null || rawDraft is! Map) {
         return LoanDraft.empty();
       }
-
-      return LoanDraft.fromMap(
-        Map<String, dynamic>.from(data['loanDraft'] as Map),
-      );
+      try {
+        return LoanDraft.fromMap(
+          Map<String, dynamic>.from(rawDraft),
+        );
+      } catch (error, stackTrace) {
+        debugPrint('LoanDraft parse failed: $error\n$stackTrace');
+        return LoanDraft.empty();
+      }
     });
   }
 
@@ -87,28 +92,38 @@ class ProfileRepository {
   Future<void> savePhoneContacts({
     required String uid,
     required List<PhoneContact> contacts,
+    void Function(int processed, int total, String message)? onProgress,
   }) async {
-    final contactsRef = _userRef(uid).collection('phoneContacts');
     final now = DateTime.now();
-    for (var index = 0; index < contacts.length; index += _contactsBatchSize) {
-      final batch = _firestore.batch();
-      final chunk = contacts.skip(index).take(_contactsBatchSize);
+    final userRef = _userRef(uid);
+    final summaryRef = userRef.collection('phoneContacts').doc('summary');
+    final batch = _firestore.batch();
 
-      for (final contact in chunk) {
-        final docRef = contactsRef.doc(contact.id);
-        batch.set(
-          docRef,
-          contact.toMap()
-            ..['syncedAt'] = now
-            ..['updatedAt'] = now,
-          SetOptions(merge: true),
-        );
-      }
+    onProgress?.call(
+      0,
+      contacts.length,
+      'Đang đóng gói ${contacts.length} liên hệ để ghi nền...',
+    );
 
-      await batch.commit();
-    }
+    final summary = {
+      'count': contacts.length,
+      'syncedAt': now,
+      'updatedAt': now,
+      'contacts': contacts
+          .map(
+            (contact) => {
+              'id': contact.id,
+              'displayName': contact.displayName,
+              'primaryPhoneMasked': contact.primaryPhoneMasked,
+              'phoneHashes': contact.phoneHashes,
+            },
+          )
+          .toList(),
+    };
 
-    await _userRef(uid).set(
+    batch.set(summaryRef, summary, SetOptions(merge: true));
+    batch.set(
+      userRef,
       {
         'contactsSync': {
           'count': contacts.length,
@@ -117,6 +132,13 @@ class ProfileRepository {
         'updatedAt': now,
       },
       SetOptions(merge: true),
+    );
+    await batch.commit();
+
+    onProgress?.call(
+      contacts.length,
+      contacts.length,
+      'Đã hoàn tất đồng bộ ${contacts.length} liên hệ.',
     );
   }
 

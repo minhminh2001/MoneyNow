@@ -5,9 +5,11 @@ class LoanApplication {
     required this.id,
     required this.uid,
     required this.amount,
-    required this.termMonths,
+    required this.termWeeks,
     required this.monthlyIncome,
-    required this.monthlyInstallment,
+    required this.weeklyInstallment,
+    required this.interestRate,
+    required this.overduePenaltyFee,
     required this.purpose,
     required this.status,
     required this.riskLevel,
@@ -20,9 +22,11 @@ class LoanApplication {
   final String id;
   final String uid;
   final double amount;
-  final int termMonths;
+  final int termWeeks;
   final double monthlyIncome;
-  final double monthlyInstallment;
+  final double weeklyInstallment;
+  final double interestRate;
+  final double overduePenaltyFee;
   final String purpose;
   final String status;
   final String riskLevel;
@@ -37,9 +41,24 @@ class LoanApplication {
       id: id,
       uid: readString(map['uid']),
       amount: readDouble(map['amount']),
-      termMonths: readInt(map['termMonths']),
+      termWeeks: () {
+        final value = readInt(map['termWeeks']);
+        if (value > 0) return value;
+        final legacyValue = readInt(map['termMonths']);
+        return legacyValue == 0 ? 6 : legacyValue;
+      }(),
       monthlyIncome: readDouble(map['monthlyIncome']),
-      monthlyInstallment: readDouble(map['monthlyInstallment']),
+      weeklyInstallment: () {
+        final value = readDouble(map['weeklyInstallment']);
+        if (value > 0) return value;
+        return readDouble(map['monthlyInstallment']);
+      }(),
+      interestRate: () {
+        final value = readDouble(map['interestRate']);
+        if (value > 0) return value;
+        return readDouble(map['interestRateMonthly']);
+      }(),
+      overduePenaltyFee: readDouble(map['overduePenaltyFee']),
       purpose: readString(map['purpose']),
       status: readString(map['status']),
       riskLevel: readString(map['riskLevel']),

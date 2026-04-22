@@ -25,7 +25,10 @@ Future<void> showAppNoticeDialog(
           insetPadding:
               const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
           child: Container(
-            constraints: const BoxConstraints(maxWidth: 420),
+            constraints: const BoxConstraints(
+              maxWidth: 420,
+              maxHeight: 640,
+            ),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(32),
@@ -89,29 +92,31 @@ Future<void> showAppNoticeDialog(
                     ],
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-                  child: Column(
-                    children: [
-                      Text(
-                        message,
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                              color: const Color(0xFF486368),
-                            ),
-                      ),
-                      const SizedBox(height: 24),
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton(
-                          onPressed: () => Navigator.of(context).pop(),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: accentColor,
-                          ),
-                          child: const Text('Đã hiểu'),
+                Flexible(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+                    child: Column(
+                      children: [
+                        Text(
+                          message,
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                color: const Color(0xFF486368),
+                              ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 24),
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: accentColor,
+                            ),
+                            child: const Text('Đã hiểu'),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],

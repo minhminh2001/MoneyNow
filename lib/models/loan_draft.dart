@@ -4,7 +4,7 @@ class LoanDraft {
   const LoanDraft({
     required this.phone,
     required this.requestedAmount,
-    required this.termMonths,
+    required this.termWeeks,
     required this.monthlyIncome,
     required this.employer,
     required this.purpose,
@@ -14,7 +14,7 @@ class LoanDraft {
 
   final String phone;
   final double requestedAmount;
-  final int termMonths;
+  final int termWeeks;
   final double monthlyIncome;
   final String employer;
   final String purpose;
@@ -25,7 +25,7 @@ class LoanDraft {
     return LoanDraft(
       phone: '',
       requestedAmount: 0,
-      termMonths: 6,
+      termWeeks: 6,
       monthlyIncome: 0,
       employer: '',
       purpose: '',
@@ -38,8 +38,12 @@ class LoanDraft {
     return LoanDraft(
       phone: readString(map['phone']),
       requestedAmount: readDouble(map['requestedAmount']),
-      termMonths:
-          readInt(map['termMonths']) == 0 ? 6 : readInt(map['termMonths']),
+      termWeeks: () {
+        final value = readInt(map['termWeeks']);
+        if (value > 0) return value;
+        final legacyValue = readInt(map['termMonths']);
+        return legacyValue == 0 ? 6 : legacyValue;
+      }(),
       monthlyIncome: readDouble(map['monthlyIncome']),
       employer: readString(map['employer']),
       purpose: readString(map['purpose']),
@@ -53,7 +57,7 @@ class LoanDraft {
     return {
       'phone': phone,
       'requestedAmount': requestedAmount,
-      'termMonths': termMonths,
+      'termWeeks': termWeeks,
       'monthlyIncome': monthlyIncome,
       'employer': employer,
       'purpose': purpose,

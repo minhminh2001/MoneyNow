@@ -252,10 +252,19 @@ String _nextStepLabel({
   required bool lightVerificationComplete,
   required int documentCount,
 }) {
-  if (draft.requestedAmount <= 0 || draft.purpose.isEmpty) {
+  final quickInfoDone =
+      draft.currentStep >= 2 ||
+      (draft.requestedAmount > 0 &&
+          draft.phone.isNotEmpty &&
+          draft.monthlyIncome > 0 &&
+          draft.employer.isNotEmpty &&
+          draft.purpose.isNotEmpty);
+  final preApprovalDone = draft.currentStep >= 3;
+
+  if (!quickInfoDone) {
     return 'Bước 1/4: Khai báo nhanh để xem hạn mức tạm tính';
   }
-  if (draft.currentStep < 3) {
+  if (!preApprovalDone) {
     return 'Bước 2/4: Xem kết quả sơ bộ và tiếp tục xác minh';
   }
   if (!lightVerificationComplete) {
@@ -272,10 +281,19 @@ String _recommendedActionLabel({
   required bool lightVerificationComplete,
   required int documentCount,
 }) {
-  if (draft.requestedAmount <= 0 || draft.purpose.isEmpty) {
+  final quickInfoDone =
+      draft.currentStep >= 2 ||
+      (draft.requestedAmount > 0 &&
+          draft.phone.isNotEmpty &&
+          draft.monthlyIncome > 0 &&
+          draft.employer.isNotEmpty &&
+          draft.purpose.isNotEmpty);
+  final preApprovalDone = draft.currentStep >= 3;
+
+  if (!quickInfoDone) {
     return 'Điền SĐT, số tiền vay và mục đích vay để mở khóa bước hạn mức.';
   }
-  if (draft.currentStep < 3) {
+  if (!preApprovalDone) {
     return 'Xem kết quả sơ bộ để biết hạn mức tạm tính của bạn.';
   }
   if (!lightVerificationComplete) {
@@ -318,9 +336,14 @@ List<_FlowStepData> _buildFlowSteps({
   required AppUser? profile,
   required int documentCount,
 }) {
-  final quickInfoDone = draft.requestedAmount > 0 && draft.purpose.isNotEmpty;
-  final preApprovalDone =
-      draft.currentStep >= 3 || profile != null || documentCount > 0;
+  final quickInfoDone =
+      draft.currentStep >= 2 ||
+      (draft.requestedAmount > 0 &&
+          draft.phone.isNotEmpty &&
+          draft.monthlyIncome > 0 &&
+          draft.employer.isNotEmpty &&
+          draft.purpose.isNotEmpty);
+  final preApprovalDone = draft.currentStep >= 3;
   final lightVerificationDone = profile?.isLightVerificationComplete == true;
   final mainVerificationDone = documentCount >= 3;
 

@@ -6,13 +6,17 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/constants/loan_policy.dart';
 import '../../core/services/contact_sync_service.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/utils/input_formatters.dart';
+import '../../core/utils/loan_calculator.dart';
 import '../../core/widgets/app_notice_dialog.dart';
 import '../../models/app_user.dart';
 import '../../models/loan_draft.dart';
+import '../../models/phone_contact.dart';
 import '../../providers/app_providers.dart';
+import '../../repositories/loan_repository.dart';
 import '../documents/document_upload_screen.dart';
 import '../profile/profile_screen.dart';
 
@@ -41,10 +45,15 @@ class _CreateApplicationScreenState
   final _employerController = TextEditingController();
 
   bool _loading = false;
-  bool _syncingContacts = false;
+  bool _preparingContacts = false;
+  bool _backgroundSyncingContacts = false;
   bool _attemptedAutoContactSync = false;
   bool _hydrated = false;
   int _step = 1;
+  String? _contactsSyncStatusText;
+  int _contactsSyncProcessed = 0;
+  int _contactsSyncTotal = 0;
+  DateTime? _contactsSyncStartedAt;
 
   @override
   void dispose() {
@@ -74,8 +83,7 @@ class _CreateApplicationScreenState
     _amountController.text = draft.requestedAmount > 0
         ? _incomeNumberFormat.format(draft.requestedAmount.round())
         : '';
-    _termController.text =
-        draft.termMonths > 0 ? draft.termMonths.toString() : '6';
+    _termController.text = draft.termWeeks > 0 ? draft.termWeeks.toString() : '6';
     _purposeController.text = draft.purpose;
     _step = (widget.initialStep ?? draft.currentStep).clamp(1, 4);
     _hydrated = true;
@@ -84,7 +92,10 @@ class _CreateApplicationScreenState
   double get _requestedAmount =>
       double.tryParse(_amountController.text.trim().replaceAll('.', '')) ?? 0;
 
-  int get _termMonths => int.tryParse(_termController.text.trim()) ?? 6;
+  int get _termWeeks {
+    final weeks = int.tryParse(_termController.text.trim()) ?? 6;
+    return weeks.clamp(1, 6);
+  }
 
   double get _monthlyIncome =>
       double.tryParse(_incomeController.text.trim().replaceAll('.', '')) ?? 0;
@@ -102,7 +113,7 @@ class _CreateApplicationScreenState
     final draft = LoanDraft(
       phone: _phone,
       requestedAmount: _requestedAmount,
-      termMonths: _termMonths,
+      termWeeks: _termWeeks,
       monthlyIncome: _monthlyIncome,
       employer: _employer,
       purpose: _purpose,
@@ -248,7 +259,7 @@ class _CreateApplicationScreenState
       final result =
           await ref.read(loanRepositoryProvider).submitLoanApplication(
                 amount: _requestedAmount,
-                termMonths: _termMonths,
+                termWeeks: _termWeeks,
                 purpose: _purpose,
               );
 
@@ -271,7 +282,7 @@ class _CreateApplicationScreenState
       await showAppNoticeDialog(
         context,
         title: 'Nộp hồ sơ thất bại',
-        message: 'Nộp hồ sơ thất bại: $error',
+        message: translateFunctionsError(error),
         isError: true,
       );
     } finally {
@@ -281,89 +292,151 @@ class _CreateApplicationScreenState
     }
   }
 
-  Future<void> _syncContactsFromFlow() async {
+  void _startContactsSyncFromFlow({bool auto = false}) {
     final firebaseUser = ref.read(currentUserProvider);
-    if (firebaseUser == null || _syncingContacts) return;
+    if (firebaseUser == null || _preparingContacts || _backgroundSyncingContacts) {
+      return;
+    }
 
-    setState(() => _syncingContacts = true);
+    setState(() {
+      _contactsSyncStartedAt = DateTime.now();
+      _preparingContacts = true;
+      _backgroundSyncingContacts = false;
+      _contactsSyncProcessed = 0;
+      _contactsSyncTotal = ContactSyncService.maxContactsToSync;
+      _contactsSyncStatusText = auto
+          ? 'Đang tự đồng bộ tối đa 100 liên hệ nền...'
+          : 'Bắt đầu đồng bộ tối đa 100 liên hệ...';
+    });
+    unawaited(_syncContactsFromFlow(firebaseUser.uid, auto: auto));
+  }
+
+  Future<void> _syncContactsFromFlow(String uid, {required bool auto}) async {
     try {
-      final result = await _contactSyncService
-          .requestAndReadContacts()
-          .timeout(const Duration(seconds: 20));
+      final result = await _contactSyncService.requestAndReadContacts(
+        onProgress: (processed, total, message) {
+          if (!mounted) return;
+          setState(() {
+            _contactsSyncProcessed = processed;
+            _contactsSyncTotal = total;
+            _contactsSyncStatusText = message;
+          });
+        },
+      );
       if (!result.granted) {
         if (!mounted) return;
-        await showAppNoticeDialog(
-          context,
-          title: 'Không thể đồng bộ danh bạ',
-          message: result.errorMessage ??
-              'Hãy cho phép danh bạ để hoàn tất bước xác minh nhẹ. Đây là điều kiện bắt buộc để được xét duyệt vay.',
-          isError: true,
-        );
+        setState(() {
+          _contactsSyncStatusText = result.errorMessage ??
+              'Hãy cho phép danh bạ để hoàn tất bước xác minh nhẹ. Đây là điều kiện bắt buộc để được xét duyệt vay.';
+        });
         return;
       }
 
       if (result.contacts.isEmpty) {
         if (!mounted) return;
-        await showAppNoticeDialog(
-          context,
-          title: 'Danh bạ trống',
-          message:
-              'Không tìm thấy liên hệ nào có số điện thoại để đồng bộ. Vui lòng kiểm tra lại danh bạ trên máy.',
-          isError: true,
-        );
+        setState(() {
+          _contactsSyncStatusText =
+              'Không tìm thấy liên hệ nào có số điện thoại trong 100 liên hệ đầu tiên.';
+        });
         return;
       }
 
-      await ref
-          .read(profileRepositoryProvider)
-          .savePhoneContacts(
-            uid: firebaseUser.uid,
-            contacts: result.contacts,
-          )
-          .timeout(const Duration(seconds: 25));
-
       if (!mounted) return;
-      await showAppNoticeDialog(
-        context,
-        title: 'Đã đồng bộ danh bạ',
-        message:
-            'Đã đồng bộ ${result.contacts.length} liên hệ dưới dạng bảo mật. Hồ sơ của bạn đã đạt điều kiện danh bạ bắt buộc.',
+      setState(() {
+        _preparingContacts = false;
+        _backgroundSyncingContacts = true;
+        _contactsSyncProcessed = 0;
+        _contactsSyncTotal = result.contacts.length;
+        _contactsSyncStatusText =
+            'Đã chuẩn bị ${result.contacts.length} liên hệ. Đang đồng bộ nền...';
+      });
+      unawaited(_saveContactsInBackground(uid, result.contacts));
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _contactsSyncStatusText = 'Đồng bộ danh bạ thất bại: $error';
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _preparingContacts = false);
+      }
+    }
+  }
+
+  Future<void> _saveContactsInBackground(
+    String uid,
+    List<PhoneContact> contacts,
+  ) async {
+    try {
+      await ref.read(profileRepositoryProvider).savePhoneContacts(
+        uid: uid,
+        contacts: contacts,
+        onProgress: (processed, total, message) {
+          if (!mounted) return;
+          setState(() {
+            _contactsSyncProcessed = processed;
+            _contactsSyncTotal = total;
+            _contactsSyncStatusText = message;
+          });
+        },
       );
     } catch (error) {
       if (!mounted) return;
-      final message = error is TimeoutException
-          ? 'Đồng bộ danh bạ mất quá nhiều thời gian. Vui lòng thử lại hoặc đồng bộ khi mạng ổn định hơn.'
-          : 'Đồng bộ danh bạ thất bại: $error';
-      await showAppNoticeDialog(
-        context,
-        title: 'Không thể đồng bộ danh bạ',
-        message: message,
-        isError: true,
-      );
+      setState(() {
+        _contactsSyncStatusText = 'Đồng bộ nền thất bại: $error';
+      });
     } finally {
       if (mounted) {
-        setState(() => _syncingContacts = false);
+        setState(() => _backgroundSyncingContacts = false);
       }
     }
+  }
+
+  void _maybeFinalizeContactsSync(AppUser? profile) {
+    if (!_backgroundSyncingContacts || profile == null) return;
+    final syncedAt = profile.contactsSyncedAt;
+    final startedAt = _contactsSyncStartedAt;
+    if (syncedAt == null || startedAt == null || !profile.hasSyncedContacts) {
+      return;
+    }
+    if (syncedAt.isBefore(startedAt.subtract(const Duration(seconds: 1)))) {
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_backgroundSyncingContacts) return;
+      setState(() {
+        _backgroundSyncingContacts = false;
+        _contactsSyncProcessed = profile.contactsSyncCount;
+        _contactsSyncTotal = profile.contactsSyncCount;
+        _contactsSyncStatusText =
+            'Đã đồng bộ ${profile.contactsSyncCount} liên hệ thành công.';
+      });
+    });
   }
 
   double _provisionalLimit({
     required double income,
     required double requestedAmount,
+    required int termWeeks,
     required bool profileComplete,
+    required bool hasSyncedContacts,
     required int documentCount,
   }) {
-    if (income <= 0 || requestedAmount <= 0) return 0;
+    if (income <= 0 || requestedAmount <= 0 || termWeeks <= 0) return 0;
 
-    var limit = math.min(requestedAmount, income * 2.2);
-    if (profileComplete) {
-      limit = math.min(requestedAmount, limit + income * 0.4);
-    }
-    if (documentCount >= 3) {
-      limit = math.min(requestedAmount, limit + income * 0.6);
-    }
+    var affordabilityRatio = 0.32;
+    if (profileComplete) affordabilityRatio += 0.08;
+    if (hasSyncedContacts) affordabilityRatio += 0.08;
+    if (documentCount >= 3) affordabilityRatio += 0.07;
 
-    return limit.clamp(1000000, requestedAmount);
+    const weeksPerMonth = 4.345;
+    final weeklyCapacity =
+        (income * affordabilityRatio.clamp(0.32, 0.55)) / weeksPerMonth;
+    final maxByWeeklyCapacity = (weeklyCapacity * termWeeks) /
+        (1 + LoanPolicy.fixedInterestRate);
+
+    return math.max(0, maxByWeeklyCapacity).roundToDouble();
   }
 
   @override
@@ -373,22 +446,26 @@ class _CreateApplicationScreenState
     final draft = ref.watch(loanDraftProvider).value ?? LoanDraft.empty();
 
     _hydrate(profile: profile, draft: draft);
+    _maybeFinalizeContactsSync(profile);
 
     final provisionalLimit = _provisionalLimit(
       income: _monthlyIncome,
       requestedAmount: _requestedAmount,
+      termWeeks: _termWeeks,
       profileComplete: profile?.isProfileComplete == true,
+      hasSyncedContacts: profile?.hasSyncedContacts == true,
       documentCount: documentCount,
     );
 
     if (_step == 3 &&
         !_attemptedAutoContactSync &&
         !(profile?.hasSyncedContacts ?? false) &&
-        !_syncingContacts) {
+        !_preparingContacts &&
+        !_backgroundSyncingContacts) {
       _attemptedAutoContactSync = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
-          _syncContactsFromFlow();
+          _startContactsSyncFromFlow(auto: true);
         }
       });
     }
@@ -423,7 +500,7 @@ class _CreateApplicationScreenState
             _PreApprovalCard(
               amount: provisionalLimit,
               requestedAmount: _requestedAmount,
-              termMonths: _termMonths,
+              termWeeks: _termWeeks,
             ),
             const SizedBox(height: 12),
             const _InfoStrip(
@@ -459,15 +536,45 @@ class _CreateApplicationScreenState
             ),
             const SizedBox(height: 12),
             FilledButton.tonal(
-              onPressed: _syncingContacts ? null : _syncContactsFromFlow,
+              onPressed: (_preparingContacts || _backgroundSyncingContacts)
+                  ? null
+                  : () => _startContactsSyncFromFlow(auto: false),
               child: Text(
-                _syncingContacts
-                    ? 'Đang đồng bộ danh bạ...'
+                _preparingContacts
+                    ? 'Đang chuẩn bị danh bạ...'
+                    : _backgroundSyncingContacts
+                        ? 'Đang đồng bộ nền...'
                     : (profile?.hasSyncedContacts ?? false)
                         ? 'Đồng bộ lại danh bạ'
                         : 'Cho phép và đồng bộ danh bạ',
               ),
             ),
+            if (_contactsSyncStatusText != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                _contactsSyncStatusText!,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ],
+            if (_preparingContacts || _backgroundSyncingContacts) ...[
+              const SizedBox(height: 10),
+              LinearProgressIndicator(
+                value: _backgroundSyncingContacts
+                    ? null
+                    : _contactsSyncTotal > 0
+                    ? (_contactsSyncProcessed / _contactsSyncTotal).clamp(0, 1)
+                    : null,
+                borderRadius: BorderRadius.circular(999),
+                minHeight: 8,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _backgroundSyncingContacts
+                    ? 'Đang ghi dữ liệu nền lên hệ thống...'
+                    : 'Tiến độ: $_contactsSyncProcessed/${_contactsSyncTotal == 0 ? ContactSyncService.maxContactsToSync : _contactsSyncTotal} liên hệ',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
             const SizedBox(height: 12),
             FilledButton.tonal(
               onPressed: () async {
@@ -681,9 +788,15 @@ class _QuickStepCard extends StatelessWidget {
             TextField(
               controller: termController,
               keyboardType: TextInputType.number,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(1),
+              ],
               decoration: const InputDecoration(
-                labelText: 'Kỳ hạn mong muốn (tháng)',
-                hintText: '3 - 24',
+                labelText: 'Kỳ hạn mong muốn (tuần)',
+                hintText: '1 - 6',
+                helperText:
+                    'Tối đa ${LoanPolicy.maxTermWeeks} tuần (${LoanPolicy.maxTermDays} ngày)',
               ),
             ),
             const SizedBox(height: 12),
@@ -706,15 +819,20 @@ class _PreApprovalCard extends StatelessWidget {
   const _PreApprovalCard({
     required this.amount,
     required this.requestedAmount,
-    required this.termMonths,
+    required this.termWeeks,
   });
 
   final double amount;
   final double requestedAmount;
-  final int termMonths;
+  final int termWeeks;
 
   @override
   Widget build(BuildContext context) {
+    final estimate = LoanCalculator.estimate(
+      principal: amount,
+      termWeeks: termWeeks,
+    );
+
     return Card(
       color: const Color(0xFF12343B),
       child: Padding(
@@ -737,13 +855,73 @@ class _PreApprovalCard extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              'Bạn đang yêu cầu ${AppFormatters.currency(requestedAmount)} trong $termMonths tháng.',
+              'Bạn đang yêu cầu ${AppFormatters.currency(requestedAmount)} trong $termWeeks tuần (${termWeeks * 7} ngày). Với hồ sơ hiện tại, hệ thống tạm tính có thể hỗ trợ đến ${AppFormatters.currency(amount)} với lãi suất cố định 8% và thanh toán theo tuần.',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: Colors.white.withValues(alpha: 0.86),
                   ),
             ),
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                _MetricBadge(
+                  label: 'Trả mỗi tuần',
+                  value: AppFormatters.currency(estimate.weeklyInstallment),
+                ),
+                _MetricBadge(
+                  label: 'Tổng gốc + lãi',
+                  value: AppFormatters.currency(estimate.totalPayable),
+                ),
+                _MetricBadge(
+                  label: 'Phí quá hạn',
+                  value: AppFormatters.currency(LoanPolicy.overduePenaltyFee),
+                ),
+              ],
+            ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _MetricBadge extends StatelessWidget {
+  const _MetricBadge({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Colors.white.withValues(alpha: 0.72),
+                ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+        ],
       ),
     );
   }
@@ -824,7 +1002,7 @@ class _VerificationMainCard extends StatelessWidget {
             const _IntroBlock(
               title: 'Hoàn tất xác minh chính',
               body:
-                  'Tải CCCD mặt trước, mặt sau và ảnh selfie. Sau bước này bạn có thể nộp hồ sơ vay thật.',
+                  'Tải CCCD mặt trước, mặt sau và ảnh selfie. Khoản vay sẽ trả theo tuần, lãi suất cố định 8% và có phí phạt nếu quá hạn.',
             ),
             const SizedBox(height: 12),
             _CheckRow(label: 'Hồ sơ cá nhân đã đủ', done: profileComplete),
@@ -838,8 +1016,8 @@ class _VerificationMainCard extends StatelessWidget {
               ),
               child: Text(
                 documentCount >= 3
-                    ? 'Tốt rồi. Hạn mức hiện tại của bạn đang ở mức ${AppFormatters.currency(provisionalLimit)} và đã sẵn sàng để nộp hồ sơ.'
-                    : 'Bạn đang ở bước cuối. Hoàn tất tài liệu để mở khóa nộp hồ sơ và tăng cơ hội duyệt nhanh hơn.',
+                    ? 'Tốt rồi. Hạn mức hiện tại của bạn đang ở mức ${AppFormatters.currency(provisionalLimit)} và đã sẵn sàng để nộp hồ sơ vay theo tuần.'
+                    : 'Bạn đang ở bước cuối. Hoàn tất tài liệu để mở khóa nộp hồ sơ, trả góp theo tuần và tăng cơ hội duyệt nhanh hơn.',
               ),
             ),
           ],
