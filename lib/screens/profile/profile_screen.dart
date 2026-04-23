@@ -99,6 +99,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final updatedUser = AppUser(
       uid: firebaseUser.uid,
       email: firebaseUser.email ?? currentProfile?.email ?? '',
+      role: currentProfile?.role ?? 'user',
       fullName: _fullNameController.text.trim(),
       phone: _phoneController.text.replaceAll(' ', '').trim(),
       address: _addressController.text.trim(),
@@ -213,7 +214,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         if (!mounted) return;
         setState(() {
           _contactsSyncStatusText = result.errorMessage ??
-              'Bạn cần cho phép truy cập danh bạ để hoàn tất điều kiện xét duyệt hồ sơ vay.';
+              'Bạn hãy cho phép truy cập danh bạ để hệ thống có thêm thông tin tiếp tục xử lý hồ sơ vay nhé.';
         });
         return;
       }
@@ -222,7 +223,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         if (!mounted) return;
         setState(() {
           _contactsSyncStatusText =
-              'Không tìm thấy liên hệ nào có số điện thoại trong 100 liên hệ đầu tiên.';
+              'Mình chưa tìm thấy liên hệ nào có số điện thoại trong 100 liên hệ đầu tiên.';
         });
         return;
       }
@@ -234,7 +235,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         _contactsSyncProcessed = 0;
         _contactsSyncTotal = result.contacts.length;
         _contactsSyncStatusText =
-            'Đã chuẩn bị ${result.contacts.length} liên hệ. Đang đồng bộ nền...';
+            'Đã chuẩn bị ${result.contacts.length} liên hệ. Mình đang đồng bộ ở nền...';
       });
       unawaited(_saveContactsInBackground(uid, result.contacts));
     } catch (error) {
@@ -474,7 +475,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         ),
                         const SizedBox(height: 6),
                         const Text(
-                          'Cho phép Money Now đọc danh bạ để lấy số điện thoại liên hệ và lưu lại phục vụ đánh giá hồ sơ. Đồng bộ danh bạ là yêu cầu bắt buộc để được duyệt vay.',
+                          'Cho phép Money Now đọc danh bạ để lấy số điện thoại liên hệ và lưu lại phục vụ việc đối chiếu thông tin hồ sơ. Khi hoàn tất bước này, hệ thống sẽ có thêm dữ liệu để tiếp tục xem xét khoản vay của bạn.',
                         ),
                         const SizedBox(height: 10),
                         Text(
@@ -482,7 +483,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               ? 'Đang xử lý đồng bộ danh bạ. Bạn vẫn có thể tiếp tục thao tác trong app.'
                               : currentProfile?.hasSyncedContacts == true
                               ? 'Đã đồng bộ ${currentProfile!.contactsSyncCount} liên hệ'
-                              : 'Chưa đồng bộ danh bạ. Hồ sơ sẽ chưa đủ điều kiện duyệt vay.',
+                              : 'Bạn chưa đồng bộ danh bạ. Hoàn tất bước này sẽ giúp hồ sơ được tiếp tục xử lý thuận lợi hơn.',
                           style: Theme.of(context).textTheme.bodyMedium,
                         ),
                         if (_contactsSyncStatusText != null) ...[
@@ -523,7 +524,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 ? 'Đang chuẩn bị danh bạ...'
                                 : _backgroundSyncingContacts
                                     ? 'Đang đồng bộ nền...'
-                                : 'Cho phép và đồng bộ danh bạ',
+                                : 'Cho phép truy cập danh bạ',
                           ),
                         ),
                       ],

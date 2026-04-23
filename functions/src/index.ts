@@ -17,10 +17,17 @@ type SubmitLoanApplicationPayload = {
   purpose: string;
 };
 
+type ManualReviewLoanApplicationPayload = {
+  applicationId: string;
+  decision: "approved" | "rejected" | "reviewing";
+  decisionReason?: string;
+};
+
 const REQUIRED_DOCUMENT_TYPES = ["id_front", "id_back", "selfie"] as const;
 const FIXED_INTEREST_RATE = 0.08;
 const MAX_TERM_WEEKS = 6;
 const OVERDUE_PENALTY_FEE = 50000;
+const PENDING_APPLICATION_STATUSES = ["reviewing", "pending", "submitted"] as const;
 
 function assertNumber(value: unknown, fieldName: string): number {
   const parsed = Number(value);
@@ -85,6 +92,83 @@ function buildWeeklyRepaymentSchedule(amount: number, termWeeks: number) {
   });
 }
 
+function normalizeManualDecision(value: unknown): "approved" | "rejected" | "reviewing" {
+  const decision = String(value ?? "").trim().toLowerCase();
+  if (decision === "approved" || decision === "rejected" || decision === "reviewing") {
+    return decision;
+  }
+  throw new HttpsError(
+    "invalid-argument",
+    "decision phai la approved, rejected hoac reviewing.",
+  );
+}
+
+async function createApprovedLoanArtifacts(params: {
+  applicationRef: admin.firestore.DocumentReference;
+  application: FirebaseFirestore.DocumentData;
+  now: admin.firestore.FieldValue;
+}) {
+  const {applicationRef, application, now} = params;
+  const loanRef = db.collection("loans").doc();
+  const loanId = loanRef.id;
+  const amount = Number(application.amount ?? 0);
+  const termWeeks = Number(application.termWeeks ?? 0);
+  const weeklyInstallment = Number(application.weeklyInstallment ?? 0);
+  const totalInterest = Number(application.totalInterest ?? 0);
+  const totalPayable = Number(application.totalPayable ?? 0);
+  const interestRate = Number(application.interestRate ?? FIXED_INTEREST_RATE);
+  const overduePenaltyFee = Number(application.overduePenaltyFee ?? OVERDUE_PENALTY_FEE);
+  const startDate = new Date();
+  const batch = db.batch();
+
+  batch.update(applicationRef, {
+    status: "approved",
+    approvedLoanId: loanId,
+    updatedAt: now,
+  });
+
+  batch.set(loanRef, {
+    uid: String(application.uid ?? ""),
+    applicationId: applicationRef.id,
+    principal: amount,
+    interestRate,
+    termWeeks,
+    weeklyInstallment,
+    totalInterest,
+    totalPayable,
+    overduePenaltyFee,
+    status: "active",
+    nextDueDate: addDays(startDate, 7),
+    createdAt: now,
+    approvedAt: now,
+  });
+
+  for (const installment of buildWeeklyRepaymentSchedule(amount, termWeeks)) {
+    const scheduleRef = loanRef.collection("repaymentSchedules").doc();
+    batch.set(scheduleRef, {
+      loanId,
+      installmentNo: installment.installmentNo,
+      dueDate: addDays(startDate, installment.installmentNo * 7),
+      amount: installment.amount,
+      principalAmount: installment.principalAmount,
+      interestAmount: installment.interestAmount,
+      openingBalance: installment.openingBalance,
+      closingBalance: installment.closingBalance,
+      overduePenaltyFee: installment.overduePenaltyFee,
+      lateFeeAmount: 0,
+      totalDue: installment.amount,
+      paidAmount: 0,
+      status: "unpaid",
+      paidAt: null,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+
+  await batch.commit();
+  return loanId;
+}
+
 export const submitLoanApplication = onCall(async (request: any) => {
   let uid = request.auth?.uid as string | undefined;
   if (!uid) {
@@ -142,6 +226,19 @@ export const submitLoanApplication = onCall(async (request: any) => {
     documentSnap.docs.map((doc: any) => String(doc.get("type"))),
   );
   const missingDocs = REQUIRED_DOCUMENT_TYPES.filter((type) => !uploadedTypes.has(type));
+  const pendingApplicationSnap = await db
+    .collection("loanApplications")
+    .where("uid", "==", uid)
+    .where("status", "in", [...PENDING_APPLICATION_STATUSES])
+    .limit(1)
+    .get();
+
+  if (!pendingApplicationSnap.empty) {
+    throw new HttpsError(
+      "failed-precondition",
+      "Bạn đang có hồ sơ vay chờ duyệt. Vui lòng đợi kết quả của hồ sơ hiện tại trước khi tạo hồ sơ mới.",
+    );
+  }
 
   const applicationRef = db.collection("loanApplications").doc();
   const {
@@ -355,6 +452,141 @@ export const markRepaymentPaidMock = onCall(async (request: any) => {
   return {
     ok: true,
     remainingInstallments: unpaid.length,
+  };
+});
+
+export const reviewLoanApplicationManual = onCall(async (request: any) => {
+  const payload = (request.data ?? {}) as Partial<ManualReviewLoanApplicationPayload>;
+  let reviewerUid = request.auth?.uid as string | undefined;
+  if (!reviewerUid) {
+    const idToken = String(request.data?.idToken ?? "").trim();
+    if (!idToken) {
+      throw new HttpsError("unauthenticated", "Ban can dang nhap.");
+    }
+
+    try {
+      const decoded = await admin.auth().verifyIdToken(idToken);
+      reviewerUid = decoded.uid;
+    } catch (_error) {
+      throw new HttpsError("unauthenticated", "Phien dang nhap khong hop le.");
+    }
+  }
+
+  const reviewerSnap = await db.collection("users").doc(reviewerUid).get();
+  const reviewerRole = String(reviewerSnap.get("role") ?? "").trim().toLowerCase();
+  if (reviewerRole !== "admin") {
+    throw new HttpsError(
+      "permission-denied",
+      "Chi tai khoan admin moi co quyen duyet ho so vay.",
+    );
+  }
+
+  const applicationId = String(payload.applicationId ?? "").trim();
+  const decision = normalizeManualDecision(payload.decision);
+  const decisionReason = String(payload.decisionReason ?? "").trim();
+
+  if (!applicationId) {
+    throw new HttpsError("invalid-argument", "applicationId la bat buoc.");
+  }
+
+  const applicationRef = db.collection("loanApplications").doc(applicationId);
+  const applicationSnap = await applicationRef.get();
+
+  if (!applicationSnap.exists) {
+    throw new HttpsError("not-found", "Khong tim thay ho so vay.");
+  }
+
+  const application = applicationSnap.data() ?? {};
+  const applicantUid = String(application.uid ?? "").trim();
+  if (!applicantUid) {
+    throw new HttpsError("failed-precondition", "Ho so vay khong co uid hop le.");
+  }
+
+  const now = admin.firestore.FieldValue.serverTimestamp();
+  const resolvedReason =
+    decisionReason ||
+    (decision === "approved"
+      ? "Hồ sơ đã được duyệt thủ công."
+      : decision === "rejected"
+        ? "Hồ sơ chưa được chấp thuận sau khi thẩm định thủ công."
+        : "Hồ sơ đang được thẩm định thủ công.");
+
+  if (decision === "approved") {
+    const amount = Number(application.amount ?? 0);
+    const termWeeks = Number(application.termWeeks ?? 0);
+    if (amount <= 0 || termWeeks <= 0) {
+      throw new HttpsError("failed-precondition", "Ho so vay dang thieu du lieu de phe duyet.");
+    }
+
+    const existingApprovedLoanId = String(application.approvedLoanId ?? "").trim();
+    if (existingApprovedLoanId) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Ho so nay da duoc duyet truoc do va da co khoan vay di kem.",
+      );
+    }
+
+    await applicationRef.set(
+      {
+        decisionReason: resolvedReason,
+        updatedAt: now,
+      },
+      {merge: true},
+    );
+
+    const loanId = await createApprovedLoanArtifacts({
+      applicationRef,
+      application,
+      now,
+    });
+
+    await db.collection("users").doc(applicantUid).set(
+      {
+        kycStatus: "verified",
+        updatedAt: now,
+      },
+      {merge: true},
+    );
+
+    return {
+      ok: true,
+      applicationId,
+      loanId,
+      status: "approved",
+      message: resolvedReason,
+    };
+  }
+
+  if (String(application.approvedLoanId ?? "").trim()) {
+    throw new HttpsError(
+      "failed-precondition",
+      "Ho so nay da co khoan vay duoc tao. Khong the chuyen ve rejected hoac reviewing.",
+    );
+  }
+
+  await applicationRef.set(
+    {
+      status: decision,
+      decisionReason: resolvedReason,
+      updatedAt: now,
+    },
+    {merge: true},
+  );
+
+  await db.collection("users").doc(applicantUid).set(
+    {
+      kycStatus: "submitted",
+      updatedAt: now,
+    },
+    {merge: true},
+  );
+
+  return {
+    ok: true,
+    applicationId,
+    loanId: null,
+    status: decision,
+    message: resolvedReason,
   };
 });
 

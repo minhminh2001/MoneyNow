@@ -123,6 +123,45 @@ class LoanRepository {
     });
   }
 
+  Future<List<LoanApplication>> fetchAllApplications() async {
+    final snapshot = await _firestore
+        .collection('loanApplications')
+        .orderBy('createdAt', descending: true)
+        .get();
+    final applications = <LoanApplication>[];
+    for (final doc in snapshot.docs) {
+      try {
+        applications.add(LoanApplication.fromMap(doc.id, doc.data()));
+      } catch (error, stackTrace) {
+        debugPrint(
+          'Admin loan application parse failed for ${doc.id}: $error\n$stackTrace',
+        );
+      }
+    }
+    return applications;
+  }
+
+  Future<Map<String, Map<String, dynamic>>> fetchUserSummariesByIds(
+    Iterable<String> uids,
+  ) async {
+    final uniqueUids = uids.map((uid) => uid.trim()).where((uid) => uid.isNotEmpty).toSet();
+    final result = <String, Map<String, dynamic>>{};
+
+    for (final uid in uniqueUids) {
+      try {
+        final snapshot = await _firestore.collection('users').doc(uid).get();
+        final data = snapshot.data();
+        if (data != null) {
+          result[uid] = Map<String, dynamic>.from(data);
+        }
+      } catch (error, stackTrace) {
+        debugPrint('Admin user summary fetch failed for $uid: $error\n$stackTrace');
+      }
+    }
+
+    return result;
+  }
+
   Stream<List<Loan>> streamLoans(String uid) {
     return _firestore
         .collection('loans')
@@ -209,6 +248,26 @@ class LoanRepository {
           'idToken': token,
         })
         .timeout(_callableTimeout);
+  }
+
+  Future<Map<String, dynamic>> reviewLoanApplicationManual({
+    required String applicationId,
+    required String decision,
+    String? decisionReason,
+  }) async {
+    final (_, token) = await _requireFreshUserForCurrentProject();
+    final callable =
+        _functionsForActiveSession().httpsCallable('reviewLoanApplicationManual');
+    final result = await callable
+        .call<Map<String, dynamic>>({
+          'applicationId': applicationId,
+          'decision': decision,
+          'decisionReason': decisionReason,
+          'idToken': token,
+        })
+        .timeout(_callableTimeout);
+
+    return Map<String, dynamic>.from(result.data);
   }
 
   Future<Map<String, dynamic>> _submitLoanApplicationFallback({

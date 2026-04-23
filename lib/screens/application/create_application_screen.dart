@@ -147,6 +147,7 @@ class _CreateApplicationScreenState
     final updatedUser = AppUser(
       uid: firebaseUser.uid,
       email: firebaseUser.email ?? currentProfile?.email ?? '',
+      role: currentProfile?.role ?? 'user',
       fullName: currentProfile?.fullName ?? '',
       phone: _phone,
       address: currentProfile?.address ?? '',
@@ -221,6 +222,22 @@ class _CreateApplicationScreenState
   Future<void> _submit() async {
     final profile = ref.read(userProfileProvider).value;
     final documentCount = ref.read(userDocumentsProvider).value?.length ?? 0;
+    final applications = ref.read(loanApplicationsProvider).value ?? const [];
+    final hasPendingApplication = applications.any(
+      (application) => const {'reviewing', 'pending', 'submitted'}
+          .contains(application.status.toLowerCase()),
+    );
+
+    if (hasPendingApplication) {
+      await showAppNoticeDialog(
+        context,
+        title: 'Mình nhắc bạn một chút',
+        message:
+            'Bạn đang có một hồ sơ vay chờ duyệt. Mình sẽ giữ hồ sơ mới lại để tránh bị trùng. Khi có kết quả, bạn có thể tạo hồ sơ tiếp nhé.',
+        isError: true,
+      );
+      return;
+    }
 
     if (profile == null || !profile.isProfileComplete) {
       await showAppNoticeDialog(
@@ -235,9 +252,9 @@ class _CreateApplicationScreenState
     if (!profile.hasSyncedContacts) {
       await showAppNoticeDialog(
         context,
-        title: 'Thiếu đồng bộ danh bạ',
+        title: 'Mình cần thêm danh bạ của bạn',
         message:
-            'Bạn cần cho phép và đồng bộ danh bạ điện thoại trước khi nộp hồ sơ. Đây là điều kiện bắt buộc để được xét duyệt vay.',
+            'Bạn hãy cho phép truy cập và đồng bộ danh bạ trước khi nộp hồ sơ nhé. Khi hoàn tất bước này, hệ thống sẽ có thêm thông tin để tiếp tục xem xét hồ sơ của bạn.',
         isError: true,
       );
       return;
@@ -305,7 +322,7 @@ class _CreateApplicationScreenState
       _contactsSyncProcessed = 0;
       _contactsSyncTotal = ContactSyncService.maxContactsToSync;
       _contactsSyncStatusText = auto
-          ? 'Đang tự đồng bộ tối đa 100 liên hệ nền...'
+          ? 'Đang tự đồng bộ tối đa 100 liên hệ ở nền...'
           : 'Bắt đầu đồng bộ tối đa 100 liên hệ...';
     });
     unawaited(_syncContactsFromFlow(firebaseUser.uid, auto: auto));
@@ -327,7 +344,7 @@ class _CreateApplicationScreenState
         if (!mounted) return;
         setState(() {
           _contactsSyncStatusText = result.errorMessage ??
-              'Hãy cho phép danh bạ để hoàn tất bước xác minh nhẹ. Đây là điều kiện bắt buộc để được xét duyệt vay.';
+              'Bạn hãy cho phép danh bạ để hoàn tất bước xác minh này nhé. Khi xong, hồ sơ của bạn sẽ được tiếp tục xem xét.';
         });
         return;
       }
@@ -336,7 +353,7 @@ class _CreateApplicationScreenState
         if (!mounted) return;
         setState(() {
           _contactsSyncStatusText =
-              'Không tìm thấy liên hệ nào có số điện thoại trong 100 liên hệ đầu tiên.';
+              'Mình chưa tìm thấy liên hệ nào có số điện thoại trong 100 liên hệ đầu tiên.';
         });
         return;
       }
@@ -348,7 +365,7 @@ class _CreateApplicationScreenState
         _contactsSyncProcessed = 0;
         _contactsSyncTotal = result.contacts.length;
         _contactsSyncStatusText =
-            'Đã chuẩn bị ${result.contacts.length} liên hệ. Đang đồng bộ nền...';
+            'Đã chuẩn bị ${result.contacts.length} liên hệ. Mình đang đồng bộ ở nền...';
       });
       unawaited(_saveContactsInBackground(uid, result.contacts));
     } catch (error) {
@@ -546,7 +563,7 @@ class _CreateApplicationScreenState
                         ? 'Đang đồng bộ nền...'
                     : (profile?.hasSyncedContacts ?? false)
                         ? 'Đồng bộ lại danh bạ'
-                        : 'Cho phép và đồng bộ danh bạ',
+                        : 'Cho phép truy cập danh bạ',
               ),
             ),
             if (_contactsSyncStatusText != null) ...[
@@ -660,7 +677,7 @@ class _CreateApplicationScreenState
       case 2:
         return 'Cho user thấy giá trị trước khi yêu cầu xác minh sâu hơn.';
       case 3:
-        return 'Bổ sung hồ sơ cá nhân và đồng bộ danh bạ. Đây là điều kiện bắt buộc để được xét duyệt vay.';
+        return 'Bổ sung hồ sơ cá nhân và đồng bộ danh bạ để hệ thống có thêm thông tin xem xét hồ sơ của bạn.';
       case 4:
         return 'Hoàn tất xác minh tài liệu để sẵn sàng nộp hồ sơ.';
       default:
@@ -955,9 +972,9 @@ class _VerificationLightCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const _IntroBlock(
-              title: 'Xác minh nhẹ bắt buộc để xét duyệt',
+              title: 'Xác minh nhẹ để tiếp tục hồ sơ',
               body:
-                  'Bạn cần hoàn tất hồ sơ cá nhân và đồng bộ danh bạ ở bước này. Đây là điều kiện bắt buộc trước khi hồ sơ được xét duyệt vay.',
+                  'Ở bước này, bạn chỉ cần hoàn tất hồ sơ cá nhân và đồng bộ danh bạ để hệ thống có thêm thông tin tiếp tục xem xét hồ sơ vay.',
             ),
             const SizedBox(height: 12),
             _CheckRow(label: 'SĐT đã khai báo', done: phone.isNotEmpty),
@@ -967,7 +984,7 @@ class _VerificationLightCard extends StatelessWidget {
             _CheckRow(
               label: contactsSyncCount > 0
                   ? 'Danh bạ đã đồng bộ ($contactsSyncCount liên hệ)'
-                  : 'Danh bạ điện thoại (bắt buộc)',
+                  : 'Danh bạ điện thoại',
               done: contactsSyncCount > 0,
             ),
             _CheckRow(label: 'Họ và tên đầy đủ', done: fullNameReady),

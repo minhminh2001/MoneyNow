@@ -4,6 +4,7 @@ class AppUser {
   const AppUser({
     required this.uid,
     required this.email,
+    required this.role,
     required this.fullName,
     required this.phone,
     required this.address,
@@ -19,6 +20,7 @@ class AppUser {
 
   final String uid;
   final String email;
+  final String role;
   final String fullName;
   final String phone;
   final String address;
@@ -38,6 +40,7 @@ class AppUser {
     return AppUser(
       uid: uid,
       email: email,
+      role: 'user',
       fullName: '',
       phone: '',
       address: '',
@@ -63,6 +66,9 @@ class AppUser {
     return AppUser(
       uid: uid,
       email: readString(map['email']),
+      role: readString(map['role']).trim().isEmpty
+          ? 'user'
+          : readString(map['role']).trim(),
       fullName: readString(map['fullName']),
       phone: readString(map['phone']),
       address: readString(map['address']),
@@ -83,6 +89,7 @@ class AppUser {
     return {
       'uid': uid,
       'email': email,
+      'role': role,
       'fullName': fullName,
       'phone': phone,
       'address': address,
@@ -106,6 +113,8 @@ class AppUser {
       nationalId.isNotEmpty;
 
   bool get hasSyncedContacts => contactsSyncCount > 0;
+
+  bool get isAdmin => role.trim().toLowerCase() == 'admin';
 
   bool get isLightVerificationComplete =>
       isProfileComplete && hasSyncedContacts;

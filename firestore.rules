@@ -10,6 +10,11 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == uid;
     }
 
+    function isAdmin() {
+      return signedIn() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
+    }
+
     match /users/{userId} {
       allow create, read, update: if isOwner(userId);
       allow delete: if false;
@@ -24,7 +29,7 @@ service cloud.firestore {
     }
 
     match /loanApplications/{applicationId} {
-      allow read: if signedIn() && resource.data.uid == request.auth.uid;
+      allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
       allow create: if signedIn()
         && request.resource.data.uid == request.auth.uid;
       allow update, delete: if false;

@@ -14,10 +14,11 @@ Future<void> showAppNoticeDialog(
     barrierLabel: 'Đóng thông báo',
     pageBuilder: (context, animation, secondaryAnimation) {
       final colorScheme = Theme.of(context).colorScheme;
-      final accentColor = isError ? colorScheme.error : colorScheme.primary;
+      final accentColor = isError ? const Color(0xFFCF6A32) : colorScheme.primary;
       final softColor = accentColor.withValues(alpha: 0.12);
       final surfaceTint =
-          isError ? const Color(0xFFFFF1F0) : const Color(0xFFFFF4EA);
+          isError ? const Color(0xFFFFF6F0) : const Color(0xFFFFF4EA);
+      final icon = isError ? Icons.info_rounded : Icons.mark_chat_read_rounded;
 
       return Center(
         child: Dialog(
@@ -72,9 +73,7 @@ Future<void> showAppNoticeDialog(
                             ),
                           ),
                           child: Icon(
-                            isError
-                                ? Icons.warning_amber_rounded
-                                : Icons.task_alt,
+                            icon,
                             color: accentColor,
                             size: 34,
                           ),
@@ -112,7 +111,7 @@ Future<void> showAppNoticeDialog(
                             style: FilledButton.styleFrom(
                               backgroundColor: accentColor,
                             ),
-                            child: const Text('Đã hiểu'),
+                            child: const Text('Đã rõ'),
                           ),
                         ),
                       ],

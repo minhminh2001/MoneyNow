@@ -1,12 +1,15 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/utils/formatters.dart';
 
 import '../../core/widgets/app_notice_dialog.dart';
 import '../../core/widgets/status_chip.dart';
 import '../../models/app_user.dart';
+import '../../models/loan_application.dart';
 import '../../providers/app_providers.dart';
 import '../../models/loan_draft.dart';
+import '../admin/loan_review_admin_screen.dart';
 import '../application/application_list_screen.dart';
 import '../charts/loan_charts_screen.dart';
 import '../documents/document_upload_screen.dart';
@@ -27,16 +30,27 @@ class HomeScreen extends ConsumerWidget {
     final draftAsync = ref.watch(loanDraftProvider);
 
     final profile = profileAsync.value;
+    final isAdmin = ref.watch(currentUserIsAdminProvider);
     final documents = documentsAsync.value ?? const [];
     final applications = applicationsAsync.value ?? const [];
     final loans = loansAsync.value ?? const [];
     final draft = draftAsync.value ?? LoanDraft.empty();
+    final hasPendingApplication = applications.any(_isPendingApplication);
+    final pendingApplication = hasPendingApplication
+        ? _latestPendingApplication(applications)
+        : null;
     final user = ref.watch(currentUserProvider);
     final hasDraft = draft.requestedAmount > 0 || draft.purpose.isNotEmpty;
+    final flowCardTitle = hasPendingApplication
+        ? 'Hồ sơ vay đang chờ duyệt'
+        : (hasDraft ? 'Tiếp tục hồ sơ vay' : 'Bắt đầu hồ sơ vay mới');
+    final flowPrimaryActionLabel =
+        hasPendingApplication ? 'Xem hồ sơ vay' : (hasDraft ? 'Tiếp tục ngay' : 'Bắt đầu ngay');
     final flowSteps = _buildFlowSteps(
       draft: draft,
       profile: profile,
       documentCount: documents.length,
+      hasPendingApplication: hasPendingApplication,
     );
     final completedStepCount = flowSteps
         .where((step) => step.status == _FlowStepStatus.done)
@@ -51,11 +65,13 @@ class HomeScreen extends ConsumerWidget {
       draft: draft,
       lightVerificationComplete: profile?.isLightVerificationComplete == true,
       documentCount: documents.length,
+      hasPendingApplication: hasPendingApplication,
     );
     final recommendedAction = _recommendedActionLabel(
       draft: draft,
       lightVerificationComplete: profile?.isLightVerificationComplete == true,
       documentCount: documents.length,
+      hasPendingApplication: hasPendingApplication,
     );
 
     final displayName = profile?.fullName.isNotEmpty == true
@@ -68,6 +84,29 @@ class HomeScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Money Now'),
         actions: [
+          if (isAdmin)
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFE4CF),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: const Text(
+                    'Admin mode',
+                    style: TextStyle(
+                      color: Color(0xFF9D470D),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+            ),
           IconButton(
             tooltip: 'Thông báo',
             onPressed: () {
@@ -104,15 +143,50 @@ class HomeScreen extends ConsumerWidget {
               displayName: displayName,
               email: user?.email ?? '--',
               profile: profile,
+              hasPendingApplication: hasPendingApplication,
             ),
+            if (isAdmin) ...[
+              const SizedBox(height: 12),
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.admin_panel_settings_outlined),
+                  title: const Text('Quản trị hồ sơ vay'),
+                  subtitle: Text(
+                    'Bạn đang đăng nhập bằng tài khoản admin: ${profile?.role ?? '--'}',
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const LoanReviewAdminScreen(),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
             const SizedBox(height: 12),
             _FlowOverviewCard(
+              title: flowCardTitle,
               nextStep: nextStep,
               hasDraft: hasDraft,
+              hasPendingApplication: hasPendingApplication,
+              pendingApplication: pendingApplication,
+              primaryActionLabel: flowPrimaryActionLabel,
               flowSteps: flowSteps
                   .map(
                     (step) => step.copyWith(
                       onTap: () async {
+                        if (hasPendingApplication) {
+                          if (!context.mounted) return;
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const ApplicationListScreen(),
+                            ),
+                          );
+                          return;
+                        }
+
                         final blockedMessage = _blockedStepMessage(
                           step: step.step,
                           draft: draft,
@@ -126,6 +200,18 @@ class HomeScreen extends ConsumerWidget {
                             context,
                             title: 'Chưa thể vào bước này',
                             message: blockedMessage,
+                            isError: true,
+                          );
+                          return;
+                        }
+
+                        if (hasPendingApplication) {
+                          if (!context.mounted) return;
+                          await showAppNoticeDialog(
+                            context,
+                            title: 'Mình nhắc bạn một chút',
+                            message:
+                                'Bạn đang có hồ sơ vay chờ duyệt. Mình sẽ đưa bạn tới danh sách hồ sơ để theo dõi kết quả nhé.',
                             isError: true,
                           );
                           return;
@@ -145,7 +231,15 @@ class HomeScreen extends ConsumerWidget {
                   .toList(),
               completedStepCount: completedStepCount,
               recommendedAction: recommendedAction,
-              onTap: () {
+              onTap: () async {
+                if (hasPendingApplication) {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const ApplicationListScreen(),
+                    ),
+                  );
+                  return;
+                }
                 Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => CreateApplicationScreen(
@@ -201,7 +295,17 @@ class HomeScreen extends ConsumerWidget {
               title: 'Kiểm tra hạn mức tạm tính',
               subtitle: 'Tính khoản vay tự động cho bạn',
               icon: Icons.request_quote_outlined,
-              onTap: () {
+              onTap: () async {
+                if (hasPendingApplication) {
+                  await showAppNoticeDialog(
+                    context,
+                    title: 'Mình nhắc bạn một chút',
+                    message:
+                        'Bạn đang có hồ sơ vay chờ duyệt. Khi hồ sơ hiện tại có kết quả, mình sẽ mở lại bước tạo hồ sơ mới cho bạn.',
+                    isError: true,
+                  );
+                  return;
+                }
                 Navigator.of(context).push(
                   MaterialPageRoute(
                       builder: (_) => const CreateApplicationScreen()),
@@ -219,6 +323,19 @@ class HomeScreen extends ConsumerWidget {
                 );
               },
             ),
+            if (isAdmin)
+              _ActionTile(
+                title: 'Duyệt hồ sơ vay',
+                subtitle: 'Khu vực quản trị để duyệt hoặc từ chối hồ sơ',
+                icon: Icons.admin_panel_settings_outlined,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const LoanReviewAdminScreen(),
+                    ),
+                  );
+                },
+              ),
             _ActionTile(
               title: 'Biểu đồ tài chính',
               subtitle: 'Tiến độ trả nợ và lịch sử khoản vay',
@@ -247,11 +364,33 @@ class HomeScreen extends ConsumerWidget {
   }
 }
 
+bool _isPendingApplication(LoanApplication application) {
+  return const {'reviewing', 'pending', 'submitted'}
+      .contains(application.status.toLowerCase());
+}
+
+LoanApplication? _latestPendingApplication(List<LoanApplication> applications) {
+  final pendingApplications = applications.where(_isPendingApplication).toList()
+    ..sort((a, b) {
+      final aTimestamp = a.createdAt?.millisecondsSinceEpoch ?? 0;
+      final bTimestamp = b.createdAt?.millisecondsSinceEpoch ?? 0;
+      return bTimestamp.compareTo(aTimestamp);
+    });
+
+  if (pendingApplications.isEmpty) return null;
+  return pendingApplications.first;
+}
+
 String _nextStepLabel({
   required LoanDraft draft,
   required bool lightVerificationComplete,
   required int documentCount,
+  required bool hasPendingApplication,
 }) {
+  if (hasPendingApplication) {
+    return 'Bạn đang có hồ sơ vay chờ duyệt.';
+  }
+
   final quickInfoDone =
       draft.currentStep >= 2 ||
       (draft.requestedAmount > 0 &&
@@ -280,7 +419,12 @@ String _recommendedActionLabel({
   required LoanDraft draft,
   required bool lightVerificationComplete,
   required int documentCount,
+  required bool hasPendingApplication,
 }) {
+  if (hasPendingApplication) {
+    return 'Bạn có thể theo dõi kết quả ngay trong danh sách hồ sơ vay. Khi hồ sơ hiện tại có kết quả, mình sẽ mở lại luồng tạo mới cho bạn.';
+  }
+
   final quickInfoDone =
       draft.currentStep >= 2 ||
       (draft.requestedAmount > 0 &&
@@ -335,7 +479,33 @@ List<_FlowStepData> _buildFlowSteps({
   required LoanDraft draft,
   required AppUser? profile,
   required int documentCount,
+  required bool hasPendingApplication,
 }) {
+  if (hasPendingApplication) {
+    return const [
+      _FlowStepData(
+        step: 1,
+        text: '1. Khai báo nhanh',
+        status: _FlowStepStatus.upcoming,
+      ),
+      _FlowStepData(
+        step: 2,
+        text: '2. Xem hạn mức',
+        status: _FlowStepStatus.upcoming,
+      ),
+      _FlowStepData(
+        step: 3,
+        text: '3. Xác minh nhẹ',
+        status: _FlowStepStatus.upcoming,
+      ),
+      _FlowStepData(
+        step: 4,
+        text: '4. Nộp hồ sơ',
+        status: _FlowStepStatus.upcoming,
+      ),
+    ];
+  }
+
   final quickInfoDone =
       draft.currentStep >= 2 ||
       (draft.requestedAmount > 0 &&
@@ -484,14 +654,20 @@ class _HeroGreetingCard extends StatelessWidget {
     required this.displayName,
     required this.email,
     required this.profile,
+    required this.hasPendingApplication,
   });
 
   final String displayName;
   final String email;
   final AppUser? profile;
+  final bool hasPendingApplication;
 
   @override
   Widget build(BuildContext context) {
+    final supportText = hasPendingApplication
+        ? 'Hồ sơ của bạn đang được kiểm tra. Mình sẽ đồng hành cùng bạn trong lúc chờ kết quả.'
+        : 'Tiếp tục hồ sơ để tăng cơ hội được duyệt nhanh hơn.';
+
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.98, end: 1),
       duration: const Duration(milliseconds: 420),
@@ -558,7 +734,7 @@ class _HeroGreetingCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 14),
                       Text(
-                        'Tiếp tục hồ sơ để tăng cơ hội được duyệt nhanh hơn.',
+                        supportText,
                         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                               color: Colors.white.withValues(alpha: 0.92),
                             ),
@@ -591,16 +767,24 @@ class _HeroGreetingCard extends StatelessWidget {
 
 class _FlowOverviewCard extends StatelessWidget {
   const _FlowOverviewCard({
+    required this.title,
     required this.nextStep,
     required this.hasDraft,
+    required this.hasPendingApplication,
+    required this.pendingApplication,
+    required this.primaryActionLabel,
     required this.flowSteps,
     required this.completedStepCount,
     required this.recommendedAction,
     required this.onTap,
   });
 
+  final String title;
   final String nextStep;
   final bool hasDraft;
+  final bool hasPendingApplication;
+  final LoanApplication? pendingApplication;
+  final String primaryActionLabel;
   final List<_FlowStepData> flowSteps;
   final int completedStepCount;
   final String recommendedAction;
@@ -608,6 +792,12 @@ class _FlowOverviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final progressDescription = hasPendingApplication
+        ? 'Hồ sơ hiện tại đang trong hàng chờ phê duyệt, vì vậy luồng tạo mới sẽ tạm khóa.'
+        : completedStepCount == 4
+            ? 'Bạn đã hoàn tất toàn bộ luồng vay.'
+            : 'Hoàn tất $completedStepCount trên 4 bước để sẵn sàng nộp hồ sơ.';
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 260),
       curve: Curves.easeOutCubic,
@@ -648,7 +838,7 @@ class _FlowOverviewCard extends StatelessWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      hasDraft ? 'Tiếp tục hồ sơ vay' : 'Bắt đầu hồ sơ vay mới',
+                      title,
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                   ),
@@ -659,89 +849,161 @@ class _FlowOverviewCard extends StatelessWidget {
                 nextStep,
                 style: Theme.of(context).textTheme.bodyLarge,
               ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(999),
-                      child: LinearProgressIndicator(
-                        value: completedStepCount / 4,
-                        minHeight: 10,
-                        backgroundColor: const Color(0xFFDDEDF1),
-                        valueColor: const AlwaysStoppedAnimation<Color>(
-                          Color(0xFFE46A11),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    '$completedStepCount/4',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: const Color(0xFFB04E15),
-                        ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                completedStepCount == 4
-                    ? 'Bạn đã hoàn tất toàn bộ funnel vay.'
-                    : 'Hoàn tất $completedStepCount trên 4 bước để sẵn sàng nộp hồ sơ.',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: const Color(0xFF617487),
-                    ),
-              ),
-              const SizedBox(height: 10),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.78),
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: const Color(0xFFF2D9C4)),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              if (hasPendingApplication && pendingApplication != null) ...[
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    const Padding(
-                      padding: EdgeInsets.only(top: 2),
-                      child: Icon(
-                        Icons.flag_circle_rounded,
-                        color: Color(0xFFE46A11),
-                        size: 18,
+                    StatusChip(status: pendingApplication!.status),
+                    Chip(
+                      label: Text(
+                        'Nộp lúc ${AppFormatters.dateTime(pendingApplication!.createdAt)}',
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        recommendedAction,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: const Color(0xFF284257),
-                            ),
-                      ),
+                      backgroundColor: Colors.white.withValues(alpha: 0.82),
+                      side: const BorderSide(color: Color(0xFFF2D9C4)),
+                      visualDensity: VisualDensity.compact,
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: flowSteps
-                    .map(
-                      (step) => _StepChip(
-                        text: step.text,
-                        status: step.status,
-                        onTap: step.onTap,
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.82),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: const Color(0xFFF2D9C4)),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFF0E4),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.hourglass_top_rounded,
+                          color: Color(0xFFE46A11),
+                          size: 18,
+                        ),
                       ),
-                    )
-                    .toList(),
-              ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Hồ sơ đang được kiểm tra',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.w700),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              pendingApplication!.decisionReason.isNotEmpty
+                                  ? pendingApplication!.decisionReason
+                                  : recommendedAction,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodyMedium
+                                  ?.copyWith(color: const Color(0xFF486368)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              if (!hasPendingApplication) ...[
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(999),
+                        child: LinearProgressIndicator(
+                          value: completedStepCount / 4,
+                          minHeight: 10,
+                          backgroundColor: const Color(0xFFDDEDF1),
+                          valueColor: const AlwaysStoppedAnimation<Color>(
+                            Color(0xFFE46A11),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      '$completedStepCount/4',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: const Color(0xFFB04E15),
+                          ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  progressDescription,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: const Color(0xFF617487),
+                      ),
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.78),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: const Color(0xFFF2D9C4)),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.only(top: 2),
+                        child: Icon(
+                          Icons.flag_circle_rounded,
+                          color: Color(0xFFE46A11),
+                          size: 18,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          recommendedAction,
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: const Color(0xFF284257),
+                                  ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: flowSteps
+                      .map(
+                        (step) => _StepChip(
+                          text: step.text,
+                          status: step.status,
+                          onTap: step.onTap,
+                        ),
+                      )
+                      .toList(),
+                ),
+              ],
               const SizedBox(height: 16),
               FilledButton(
                 onPressed: onTap,
-                child: Text(hasDraft ? 'Tiếp tục ngay' : 'Bắt đầu ngay'),
+                child: Text(primaryActionLabel),
               ),
             ],
           ),
@@ -750,7 +1012,6 @@ class _FlowOverviewCard extends StatelessWidget {
     );
   }
 }
-
 class _ActionTile extends StatelessWidget {
   const _ActionTile({
     required this.title,
@@ -928,3 +1189,5 @@ enum _FlowStepStatus {
   current,
   upcoming,
 }
+
+

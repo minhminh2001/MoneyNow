@@ -84,6 +84,15 @@ final userProfileProvider = StreamProvider.autoDispose<AppUser?>((ref) {
       .map((profile) => profile);
 });
 
+final currentUserIsAdminProvider = Provider<bool>((ref) {
+  final profileAsync = ref.watch(userProfileProvider);
+  return profileAsync.when(
+    data: (profile) => profile?.isAdmin == true,
+    loading: () => false,
+    error: (_, __) => false,
+  );
+});
+
 final userDocumentsProvider =
     StreamProvider.autoDispose<List<UploadedDocument>>((ref) {
   final uid = ref.watch(currentUserIdProvider);
