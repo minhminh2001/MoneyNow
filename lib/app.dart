@@ -15,6 +15,18 @@ class LoanApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (initializationError != null) {
+      return MaterialApp(
+        title: 'Money Now',
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(
+          useMaterial3: true,
+          scaffoldBackgroundColor: const Color(0xFFF5F7FB),
+        ),
+        home: FirebaseSetupScreen(errorText: initializationError.toString()),
+      );
+    }
+
     final authState = ref.watch(authStateChangesProvider);
     final baseTextTheme = Typography.material2021().black;
     const seedColor = Color(0xFFE46A11);
@@ -145,20 +157,18 @@ class LoanApp extends ConsumerWidget {
           helperStyle: TextStyle(color: Color(0xFF6B7A90)),
         ),
       ),
-      home: initializationError != null
-          ? FirebaseSetupScreen(errorText: initializationError.toString())
-          : authState.when(
-              data: (user) {
-                if (user == null) {
-                  return const LoginScreen();
-                }
-                return const HomeScreen();
-              },
-              loading: () => const SplashScreen(),
-              error: (error, _) => FirebaseSetupScreen(
-                errorText: error.toString(),
-              ),
-            ),
+      home: authState.when(
+        data: (user) {
+          if (user == null) {
+            return const LoginScreen();
+          }
+          return const HomeScreen();
+        },
+        loading: () => const SplashScreen(),
+        error: (error, _) => FirebaseSetupScreen(
+          errorText: error.toString(),
+        ),
+      ),
     );
   }
 }

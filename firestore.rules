@@ -16,15 +16,16 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow create, read, update: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow read, update: if isOwner(userId) || isAdmin();
       allow delete: if false;
 
       match /documents/{docId} {
-        allow create, read, update, delete: if isOwner(userId);
+        allow create, read, update, delete: if isOwner(userId) || isAdmin();
       }
 
       match /phoneContacts/{docId} {
-        allow create, read, update, delete: if isOwner(userId);
+        allow create, read, update, delete: if isOwner(userId) || isAdmin();
       }
     }
 
@@ -32,17 +33,20 @@ service cloud.firestore {
       allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
       allow create: if signedIn()
         && request.resource.data.uid == request.auth.uid;
-      allow update, delete: if false;
+      allow update: if isAdmin();
+      allow delete: if false;
     }
 
     match /loans/{loanId} {
-      allow read: if signedIn() && resource.data.uid == request.auth.uid;
-      allow create, update, delete: if false;
+      allow read, update: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow create: if isAdmin();
+      allow delete: if false;
 
       match /repaymentSchedules/{scheduleId} {
-        allow read: if signedIn()
-          && get(/databases/$(database)/documents/loans/$(loanId)).data.uid == request.auth.uid;
-        allow create, update, delete: if false;
+        allow read, update: if isAdmin() || (signedIn()
+          && get(/databases/$(database)/documents/loans/$(loanId)).data.uid == request.auth.uid);
+        allow create: if isAdmin();
+        allow delete: if false;
       }
     }
   }

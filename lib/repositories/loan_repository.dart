@@ -127,7 +127,8 @@ class LoanRepository {
     final snapshot = await _firestore
         .collection('loanApplications')
         .orderBy('createdAt', descending: true)
-        .get();
+        .get()
+        .timeout(_callableTimeout);
     final applications = <LoanApplication>[];
     for (final doc in snapshot.docs) {
       try {
@@ -149,7 +150,11 @@ class LoanRepository {
 
     for (final uid in uniqueUids) {
       try {
-        final snapshot = await _firestore.collection('users').doc(uid).get();
+        final snapshot = await _firestore
+            .collection('users')
+            .doc(uid)
+            .get()
+            .timeout(_callableTimeout);
         final data = snapshot.data();
         if (data != null) {
           result[uid] = Map<String, dynamic>.from(data);
@@ -223,7 +228,10 @@ class LoanRepository {
 
       return Map<String, dynamic>.from(result.data);
     } on FirebaseFunctionsException catch (error) {
-      if (error.code == 'unauthenticated') {
+      if (error.code == 'unauthenticated' ||
+          error.code == 'not-found' ||
+          error.code == 'internal' ||
+          error.code == 'unimplemented') {
         return _submitLoanApplicationFallback(
           amount: amount,
           termWeeks: termWeeks,
@@ -231,6 +239,12 @@ class LoanRepository {
         );
       }
       rethrow;
+    } on TimeoutException {
+      return _submitLoanApplicationFallback(
+        amount: amount,
+        termWeeks: termWeeks,
+        purpose: purpose,
+      );
     }
   }
 
@@ -238,16 +252,36 @@ class LoanRepository {
     required String loanId,
     required String scheduleId,
   }) async {
-    final (_, token) = await _requireFreshUserForCurrentProject();
-    final callable =
-        _functionsForActiveSession().httpsCallable('markRepaymentPaidMock');
-    await callable
-        .call<Map<String, dynamic>>({
-          'loanId': loanId,
-          'scheduleId': scheduleId,
-          'idToken': token,
-        })
-        .timeout(_callableTimeout);
+    try {
+      final (_, token) = await _requireFreshUserForCurrentProject();
+      final callable =
+          _functionsForActiveSession().httpsCallable('markRepaymentPaidMock');
+      await callable
+          .call<Map<String, dynamic>>({
+            'loanId': loanId,
+            'scheduleId': scheduleId,
+            'idToken': token,
+          })
+          .timeout(_callableTimeout);
+    } on FirebaseFunctionsException catch (error) {
+      if (error.code == 'unauthenticated' ||
+          error.code == 'not-found' ||
+          error.code == 'internal' ||
+          error.code == 'unimplemented') {
+        await _markRepaymentPaidFallback(
+          loanId: loanId,
+          scheduleId: scheduleId,
+        );
+        return;
+      }
+      rethrow;
+    } on TimeoutException {
+      await _markRepaymentPaidFallback(
+        loanId: loanId,
+        scheduleId: scheduleId,
+      );
+      return;
+    }
   }
 
   Future<Map<String, dynamic>> reviewLoanApplicationManual({
@@ -255,19 +289,40 @@ class LoanRepository {
     required String decision,
     String? decisionReason,
   }) async {
-    final (_, token) = await _requireFreshUserForCurrentProject();
-    final callable =
-        _functionsForActiveSession().httpsCallable('reviewLoanApplicationManual');
-    final result = await callable
-        .call<Map<String, dynamic>>({
-          'applicationId': applicationId,
-          'decision': decision,
-          'decisionReason': decisionReason,
-          'idToken': token,
-        })
-        .timeout(_callableTimeout);
+    try {
+      final (_, token) = await _requireFreshUserForCurrentProject();
+      final callable = _functionsForActiveSession()
+          .httpsCallable('reviewLoanApplicationManual');
+      final result = await callable
+          .call<Map<String, dynamic>>({
+            'applicationId': applicationId,
+            'decision': decision,
+            'decisionReason': decisionReason,
+            'idToken': token,
+          })
+          .timeout(_callableTimeout);
 
-    return Map<String, dynamic>.from(result.data);
+      return Map<String, dynamic>.from(result.data);
+    } on FirebaseFunctionsException catch (error) {
+      if (error.code == 'unauthenticated' ||
+          error.code == 'permission-denied' ||
+          error.code == 'not-found' ||
+          error.code == 'internal' ||
+          error.code == 'unimplemented') {
+        return _reviewLoanApplicationFallback(
+          applicationId: applicationId,
+          decision: decision,
+          decisionReason: decisionReason,
+        );
+      }
+      rethrow;
+    } on TimeoutException {
+      return _reviewLoanApplicationFallback(
+        applicationId: applicationId,
+        decision: decision,
+        decisionReason: decisionReason,
+      );
+    }
   }
 
   Future<Map<String, dynamic>> _submitLoanApplicationFallback({
@@ -283,7 +338,11 @@ class LoanRepository {
       );
     }
 
-    final userSnap = await _firestore.collection('users').doc(user.uid).get();
+    final userSnap = await _firestore
+        .collection('users')
+        .doc(user.uid)
+        .get()
+        .timeout(_callableTimeout);
     final monthlyIncome = ((userSnap.data() ?? const <String, dynamic>{})['monthlyIncome']
                 as num?)
             ?.toDouble() ??
@@ -295,24 +354,26 @@ class LoanRepository {
     );
 
     final applicationRef = _firestore.collection('loanApplications').doc();
-    await applicationRef.set({
-      'uid': user.uid,
-      'amount': amount,
-      'termWeeks': termWeeks,
-      'monthlyIncome': monthlyIncome,
-      'weeklyInstallment': estimate.weeklyInstallment,
-      'interestRate': LoanPolicy.fixedInterestRate,
-      'overduePenaltyFee': LoanPolicy.overduePenaltyFee,
-      'purpose': purpose,
-      'status': 'reviewing',
-      'riskLevel': 'medium',
-      'decisionReason':
-          'Hồ sơ đã được ghi nhận và đang chờ thẩm định thủ công.',
-      'approvedLoanId': null,
-      'createdAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-      'source': 'client_fallback',
-    });
+    await applicationRef
+        .set({
+          'uid': user.uid,
+          'amount': amount,
+          'termWeeks': termWeeks,
+          'monthlyIncome': monthlyIncome,
+          'weeklyInstallment': estimate.weeklyInstallment,
+          'interestRate': LoanPolicy.fixedInterestRate,
+          'overduePenaltyFee': LoanPolicy.overduePenaltyFee,
+          'purpose': purpose,
+          'status': 'reviewing',
+          'riskLevel': 'medium',
+          'decisionReason':
+              'Hồ sơ đã được ghi nhận và đang chờ thẩm định thủ công.',
+          'approvedLoanId': null,
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+          'source': 'client_fallback',
+        })
+        .timeout(_callableTimeout);
 
     return {
       'applicationId': applicationRef.id,
@@ -321,11 +382,333 @@ class LoanRepository {
       'message': 'Hồ sơ đã được ghi nhận và đang chờ thẩm định thủ công.',
     };
   }
+
+  Future<void> _markRepaymentPaidFallback({
+    required String loanId,
+    required String scheduleId,
+  }) async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw FirebaseFunctionsException(
+        code: 'unauthenticated',
+        message: 'Bạn cần đăng nhập lại trước khi cập nhật thanh toán.',
+      );
+    }
+
+    final loanRef = _firestore.collection('loans').doc(loanId);
+    final scheduleRef = loanRef.collection('repaymentSchedules').doc(scheduleId);
+
+    await _firestore.runTransaction((transaction) async {
+      final loanSnap = await transaction.get(loanRef);
+      final scheduleSnap = await transaction.get(scheduleRef);
+
+      if (!loanSnap.exists) {
+        throw FirebaseFunctionsException(
+          code: 'not-found',
+          message: 'Không tìm thấy khoản vay.',
+        );
+      }
+
+      if (!scheduleSnap.exists) {
+        throw FirebaseFunctionsException(
+          code: 'not-found',
+          message: 'Không tìm thấy kỳ thanh toán.',
+        );
+      }
+
+      final loan = loanSnap.data() ?? const <String, dynamic>{};
+      if ((loan['uid'] ?? '').toString() != user.uid) {
+        throw FirebaseFunctionsException(
+          code: 'permission-denied',
+          message: 'Bạn không có quyền cập nhật khoản vay này.',
+        );
+      }
+
+      final schedule = scheduleSnap.data() ?? const <String, dynamic>{};
+      if ((schedule['status'] ?? '').toString() == 'paid') {
+        return;
+      }
+
+      final amountDue = ((schedule['totalDue'] ?? schedule['amount'] ?? 0) as num)
+          .toDouble();
+
+      transaction.update(scheduleRef, {
+        'status': 'paid',
+        'paidAmount': amountDue,
+        'paidAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    }).timeout(_callableTimeout);
+
+    final remainingSchedules = await loanRef
+        .collection('repaymentSchedules')
+        .orderBy('installmentNo')
+        .get()
+        .timeout(_callableTimeout);
+
+    final unpaidDocs = remainingSchedules.docs
+        .where((doc) => (doc.data()['status'] ?? '').toString() != 'paid')
+        .toList();
+
+    await loanRef
+        .set(
+          {
+            'status': unpaidDocs.isEmpty ? 'closed' : 'active',
+            'nextDueDate':
+                unpaidDocs.isEmpty ? null : unpaidDocs.first.data()['dueDate'],
+            'updatedAt': FieldValue.serverTimestamp(),
+          },
+          SetOptions(merge: true),
+        )
+        .timeout(_callableTimeout);
+  }
+
+  Future<Map<String, dynamic>> _reviewLoanApplicationFallback({
+    required String applicationId,
+    required String decision,
+    String? decisionReason,
+  }) async {
+    final reviewer = _auth.currentUser;
+    if (reviewer == null) {
+      throw FirebaseFunctionsException(
+        code: 'unauthenticated',
+        message: 'Bạn cần đăng nhập lại trước khi duyệt hồ sơ.',
+      );
+    }
+
+    final reviewerSnap = await _firestore
+        .collection('users')
+        .doc(reviewer.uid)
+        .get()
+        .timeout(_callableTimeout);
+    final reviewerRole =
+        ((reviewerSnap.data() ?? const <String, dynamic>{})['role'] ?? '')
+            .toString()
+            .trim()
+            .toLowerCase();
+    if (reviewerRole != 'admin') {
+      throw FirebaseFunctionsException(
+        code: 'permission-denied',
+        message: 'Chỉ tài khoản admin mới có quyền duyệt hồ sơ vay.',
+      );
+    }
+
+    final normalizedDecision = decision.trim().toLowerCase();
+    if (!const {'approved', 'rejected', 'reviewing'}
+        .contains(normalizedDecision)) {
+      throw FirebaseFunctionsException(
+        code: 'invalid-argument',
+        message: 'Trạng thái duyệt hồ sơ không hợp lệ.',
+      );
+    }
+
+    final applicationRef =
+        _firestore.collection('loanApplications').doc(applicationId);
+    final applicationSnap =
+        await applicationRef.get().timeout(_callableTimeout);
+    if (!applicationSnap.exists) {
+      throw FirebaseFunctionsException(
+        code: 'not-found',
+        message: 'Không tìm thấy hồ sơ vay.',
+      );
+    }
+
+    final application = applicationSnap.data() ?? const <String, dynamic>{};
+    final applicantUid = (application['uid'] ?? '').toString().trim();
+    if (applicantUid.isEmpty) {
+      throw FirebaseFunctionsException(
+        code: 'failed-precondition',
+        message: 'Hồ sơ vay không có uid hợp lệ.',
+      );
+    }
+
+    final resolvedReason = (decisionReason ?? '').trim().isNotEmpty
+        ? decisionReason!.trim()
+        : switch (normalizedDecision) {
+            'approved' => 'Hồ sơ đã được duyệt thủ công.',
+            'rejected' =>
+              'Hồ sơ chưa được chấp thuận sau khi thẩm định thủ công.',
+            _ => 'Hồ sơ đang được thẩm định thủ công.',
+          };
+
+    if (normalizedDecision == 'approved') {
+      final existingLoanId = (application['approvedLoanId'] ?? '').toString();
+      if (existingLoanId.trim().isNotEmpty) {
+        throw FirebaseFunctionsException(
+          code: 'failed-precondition',
+          message: 'Hồ sơ này đã được duyệt và có khoản vay đi kèm.',
+        );
+      }
+
+      final amount = ((application['amount'] ?? 0) as num).toDouble();
+      final termWeeks = ((application['termWeeks'] ?? 0) as num).toInt();
+      if (amount <= 0 || termWeeks <= 0) {
+        throw FirebaseFunctionsException(
+          code: 'failed-precondition',
+          message: 'Hồ sơ vay đang thiếu dữ liệu để phê duyệt.',
+        );
+      }
+
+      final estimate = LoanCalculator.estimate(
+        principal: amount,
+        termWeeks: termWeeks,
+      );
+      final loanRef = _firestore.collection('loans').doc();
+      final now = FieldValue.serverTimestamp();
+      final startDate = DateTime.now();
+      final batch = _firestore.batch();
+
+      batch.set(applicationRef, {
+        'status': 'approved',
+        'riskLevel': 'medium',
+        'decisionReason': resolvedReason,
+        'approvedLoanId': loanRef.id,
+        'updatedAt': now,
+      }, SetOptions(merge: true));
+
+      batch.set(loanRef, {
+        'uid': applicantUid,
+        'applicationId': applicationId,
+        'principal': amount,
+        'interestRate': LoanPolicy.fixedInterestRate,
+        'termWeeks': termWeeks,
+        'weeklyInstallment': estimate.weeklyInstallment,
+        'totalInterest': estimate.totalInterest,
+        'totalPayable': estimate.totalPayable,
+        'overduePenaltyFee': LoanPolicy.overduePenaltyFee,
+        'status': 'active',
+        'nextDueDate': Timestamp.fromDate(_addDays(startDate, 7)),
+        'createdAt': now,
+        'approvedAt': now,
+        'source': 'client_admin_fallback',
+      });
+
+      for (final installment in _buildRepaymentSchedule(
+        loanId: loanRef.id,
+        amount: amount,
+        termWeeks: termWeeks,
+        startDate: startDate,
+      )) {
+        batch.set(
+          loanRef.collection('repaymentSchedules').doc(),
+          installment,
+        );
+      }
+
+      batch.set(
+        _firestore.collection('users').doc(applicantUid),
+        {
+          'kycStatus': 'verified',
+          'updatedAt': now,
+        },
+        SetOptions(merge: true),
+      );
+
+      await batch.commit().timeout(_callableTimeout);
+
+      return {
+        'ok': true,
+        'applicationId': applicationId,
+        'loanId': loanRef.id,
+        'status': 'approved',
+        'message': resolvedReason,
+      };
+    }
+
+    final existingLoanId = (application['approvedLoanId'] ?? '').toString();
+    if (existingLoanId.trim().isNotEmpty) {
+      throw FirebaseFunctionsException(
+        code: 'failed-precondition',
+        message:
+            'Hồ sơ này đã có khoản vay được tạo. Không thể đổi trạng thái.',
+      );
+    }
+
+    final batch = _firestore.batch();
+    final now = FieldValue.serverTimestamp();
+    batch.set(applicationRef, {
+      'status': normalizedDecision,
+      'decisionReason': resolvedReason,
+      'updatedAt': now,
+    }, SetOptions(merge: true));
+    batch.set(
+      _firestore.collection('users').doc(applicantUid),
+      {
+        'kycStatus': 'submitted',
+        'updatedAt': now,
+      },
+      SetOptions(merge: true),
+    );
+    await batch.commit().timeout(_callableTimeout);
+
+    return {
+      'ok': true,
+      'applicationId': applicationId,
+      'loanId': null,
+      'status': normalizedDecision,
+      'message': resolvedReason,
+    };
+  }
+
+  DateTime _addDays(DateTime baseDate, int days) {
+    return DateTime(
+      baseDate.year,
+      baseDate.month,
+      baseDate.day + days,
+      9,
+    );
+  }
+
+  List<Map<String, dynamic>> _buildRepaymentSchedule({
+    required String loanId,
+    required double amount,
+    required int termWeeks,
+    required DateTime startDate,
+  }) {
+    final totalInterest = (amount * LoanPolicy.fixedInterestRate).round();
+    final basePrincipal = amount ~/ termWeeks;
+    final baseInterest = totalInterest ~/ termWeeks;
+    var remainingPrincipal = amount;
+    var remainingInterest = totalInterest.toDouble();
+
+    return List.generate(termWeeks, (index) {
+      final installmentNo = index + 1;
+      final principalAmount =
+          installmentNo == termWeeks ? remainingPrincipal : basePrincipal.toDouble();
+      final interestAmount =
+          installmentNo == termWeeks ? remainingInterest : baseInterest.toDouble();
+      final openingBalance = remainingPrincipal;
+      final closingBalance = (openingBalance - principalAmount).clamp(0, amount);
+      final amountDue = principalAmount + interestAmount;
+
+      remainingPrincipal = closingBalance.toDouble();
+      remainingInterest = (remainingInterest - interestAmount).clamp(0, totalInterest.toDouble());
+
+      return {
+        'loanId': loanId,
+        'installmentNo': installmentNo,
+        'dueDate': Timestamp.fromDate(_addDays(startDate, installmentNo * 7)),
+        'amount': amountDue,
+        'principalAmount': principalAmount,
+        'interestAmount': interestAmount,
+        'openingBalance': openingBalance,
+        'closingBalance': closingBalance,
+        'overduePenaltyFee': LoanPolicy.overduePenaltyFee,
+        'lateFeeAmount': 0,
+        'totalDue': amountDue,
+        'paidAmount': 0,
+        'status': 'unpaid',
+        'paidAt': null,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+    });
+  }
 }
 
 String translateFunctionsError(Object error) {
   if (error is TimeoutException) {
-    return 'Hệ thống xử lý hồ sơ đang phản hồi chậm. Vui lòng thử lại sau ít phút.';
+    return 'Hệ thống đang phản hồi chậm. Vui lòng thử lại sau ít phút.';
   }
   if (error is FirebaseFunctionsException) {
     switch (error.code) {
@@ -343,6 +726,14 @@ String translateFunctionsError(Object error) {
         return error.message?.trim().isNotEmpty == true
             ? error.message!.trim()
             : 'Dữ liệu gửi lên chưa hợp lệ.';
+      case 'not-found':
+        return error.message?.trim().isNotEmpty == true
+            ? error.message!.trim()
+            : 'Không tìm thấy dữ liệu cần cập nhật.';
+      case 'permission-denied':
+        return error.message?.trim().isNotEmpty == true
+            ? error.message!.trim()
+            : 'Bạn không có quyền thực hiện thao tác này.';
       default:
         return error.message?.trim().isNotEmpty == true
             ? error.message!.trim()

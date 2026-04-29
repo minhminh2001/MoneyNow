@@ -7,6 +7,7 @@ import '../../core/widgets/status_chip.dart';
 import '../../models/loan.dart';
 import '../../models/repayment.dart';
 import '../../providers/app_providers.dart';
+import '../../repositories/loan_repository.dart';
 import '../charts/loan_charts_screen.dart';
 
 class LoanDetailScreen extends ConsumerStatefulWidget {
@@ -23,6 +24,7 @@ class LoanDetailScreen extends ConsumerStatefulWidget {
 
 class _LoanDetailScreenState extends ConsumerState<LoanDetailScreen> {
   final Set<String> _payingScheduleIds = <String>{};
+  final Set<String> _optimisticPaidScheduleIds = <String>{};
 
   Future<void> _markPaid(Repayment repayment) async {
     setState(() => _payingScheduleIds.add(repayment.id));
@@ -32,6 +34,9 @@ class _LoanDetailScreenState extends ConsumerState<LoanDetailScreen> {
             loanId: widget.loan.id,
             scheduleId: repayment.id,
           );
+      if (mounted) {
+        setState(() => _optimisticPaidScheduleIds.add(repayment.id));
+      }
       if (!mounted) return;
       await showAppNoticeDialog(
         context,
@@ -43,7 +48,7 @@ class _LoanDetailScreenState extends ConsumerState<LoanDetailScreen> {
       await showAppNoticeDialog(
         context,
         title: 'Cập nhật thất bại',
-        message: 'Không thể cập nhật thanh toán: $error',
+        message: translateFunctionsError(error),
         isError: true,
       );
     } finally {
@@ -121,6 +126,21 @@ class _LoanDetailScreenState extends ConsumerState<LoanDetailScreen> {
           const SizedBox(height: 8),
           scheduleAsync.when(
             data: (schedules) {
+              final syncedPaidIds = schedules
+                  .where((repayment) => repayment.status == 'paid')
+                  .map((repayment) => repayment.id)
+                  .toSet();
+              final staleOptimisticIds =
+                  _optimisticPaidScheduleIds.difference(syncedPaidIds);
+              if (staleOptimisticIds.isNotEmpty) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted) return;
+                  setState(() {
+                    _optimisticPaidScheduleIds.removeAll(staleOptimisticIds);
+                  });
+                });
+              }
+
               if (schedules.isEmpty) {
                 return const Card(
                   child: ListTile(
@@ -132,6 +152,8 @@ class _LoanDetailScreenState extends ConsumerState<LoanDetailScreen> {
               return Column(
                 children: schedules.map((repayment) {
                   final loading = _payingScheduleIds.contains(repayment.id);
+                  final isPaid = repayment.status == 'paid' ||
+                      _optimisticPaidScheduleIds.contains(repayment.id);
                   return Card(
                     child: ListTile(
                       title: Text('Kỳ #${repayment.installmentNo}'),
@@ -139,7 +161,7 @@ class _LoanDetailScreenState extends ConsumerState<LoanDetailScreen> {
                         'Hạn: ${AppFormatters.date(repayment.dueDate)}\nGốc + lãi: ${AppFormatters.currency(repayment.amount)}\nPhí phạt quá hạn: ${AppFormatters.currency(repayment.overduePenaltyFee)}\nTổng cần trả: ${AppFormatters.currency(repayment.totalDue)}',
                       ),
                       isThreeLine: true,
-                      trailing: repayment.status == 'paid'
+                      trailing: isPaid
                           ? const Icon(Icons.check_circle, color: Colors.green)
                           : FilledButton.tonal(
                               onPressed:
