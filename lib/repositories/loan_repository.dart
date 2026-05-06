@@ -665,9 +665,13 @@ class LoanRepository {
     required int termWeeks,
     required DateTime startDate,
   }) {
-    final totalInterest = (amount * LoanPolicy.fixedInterestRate).round();
+    final dailyInterestRate = LoanPolicy.fixedInterestRate / 30;
+    final weeklyInterestRate = dailyInterestRate * 7;
+    
+    final baseInterest = (amount * weeklyInterestRate).round();
+    final totalInterest = baseInterest * termWeeks;
+    
     final basePrincipal = amount ~/ termWeeks;
-    final baseInterest = totalInterest ~/ termWeeks;
     var remainingPrincipal = amount;
     var remainingInterest = totalInterest.toDouble();
 

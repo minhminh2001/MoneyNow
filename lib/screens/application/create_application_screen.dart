@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -432,29 +431,6 @@ class _CreateApplicationScreenState
     });
   }
 
-  double _provisionalLimit({
-    required double income,
-    required double requestedAmount,
-    required int termWeeks,
-    required bool profileComplete,
-    required bool hasSyncedContacts,
-    required int documentCount,
-  }) {
-    if (income <= 0 || requestedAmount <= 0 || termWeeks <= 0) return 0;
-
-    var affordabilityRatio = 0.32;
-    if (profileComplete) affordabilityRatio += 0.08;
-    if (hasSyncedContacts) affordabilityRatio += 0.08;
-    if (documentCount >= 3) affordabilityRatio += 0.07;
-
-    const weeksPerMonth = 4.345;
-    final weeklyCapacity =
-        (income * affordabilityRatio.clamp(0.32, 0.55)) / weeksPerMonth;
-    final maxByWeeklyCapacity = (weeklyCapacity * termWeeks) /
-        (1 + LoanPolicy.fixedInterestRate);
-
-    return math.max(0, maxByWeeklyCapacity).roundToDouble();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -465,14 +441,7 @@ class _CreateApplicationScreenState
     _hydrate(profile: profile, draft: draft);
     _maybeFinalizeContactsSync(profile);
 
-    final provisionalLimit = _provisionalLimit(
-      income: _monthlyIncome,
-      requestedAmount: _requestedAmount,
-      termWeeks: _termWeeks,
-      profileComplete: profile?.isProfileComplete == true,
-      hasSyncedContacts: profile?.hasSyncedContacts == true,
-      documentCount: documentCount,
-    );
+    final provisionalLimit = _requestedAmount > 0 ? _requestedAmount : 0.0;
 
     if (_step == 3 &&
         !_attemptedAutoContactSync &&
@@ -510,7 +479,7 @@ class _CreateApplicationScreenState
             const SizedBox(height: 16),
             FilledButton(
               onPressed: _loading ? null : () => _goToStep2(profile),
-              child: Text(_loading ? 'Đang lưu...' : 'Xem hạn mức tạm tính'),
+              child: Text(_loading ? 'Đang lưu...' : 'Xem chi tiết khoản vay'),
             ),
           ],
           if (_step == 2) ...[
@@ -522,7 +491,7 @@ class _CreateApplicationScreenState
             const SizedBox(height: 12),
             const _InfoStrip(
               text:
-                  'Hoàn tất xác minh để tăng hạn mức, duyệt nhanh hơn và sẵn sàng nộp hồ sơ thật.',
+                  'Hoàn tất các bước tiếp theo để tăng hạn mức, duyệt hồ sơ nhanh hơn và sẵn sàng giải ngân.',
             ),
             const SizedBox(height: 16),
             Row(
@@ -658,13 +627,13 @@ class _CreateApplicationScreenState
   String _titleForStep(int step) {
     switch (step) {
       case 1:
-        return 'Bước 1/4: Khai báo nhanh';
+        return 'Bước 1/4: Thông tin cơ bản';
       case 2:
-        return 'Bước 2/4: Kết quả sơ bộ';
+        return 'Bước 2/4: Chi tiết khoản vay';
       case 3:
-        return 'Bước 3/4: Xác minh nhẹ';
+        return 'Bước 3/4: Bổ sung thông tin';
       case 4:
-        return 'Bước 4/4: Xác minh chính';
+        return 'Bước 4/4: Xác thực danh tính';
       default:
         return 'Hồ sơ vay';
     }
@@ -673,13 +642,13 @@ class _CreateApplicationScreenState
   String _subtitleForStep(int step) {
     switch (step) {
       case 1:
-        return 'Khai báo thông tin cơ bản để tiếp tục.';
+        return 'Cung cấp thông tin để hệ thống đánh giá sơ bộ.';
       case 2:
-        return 'Cho user thấy giá trị trước khi yêu cầu xác minh sâu hơn.';
+        return 'Chi tiết lịch trả nợ cho khoản vay của bạn.';
       case 3:
-        return 'Bổ sung hồ sơ cá nhân và đồng bộ danh bạ để hệ thống có thêm thông tin xem xét hồ sơ của bạn.';
+        return 'Hoàn thiện hồ sơ cá nhân để tăng tỷ lệ duyệt.';
       case 4:
-        return 'Hoàn tất xác minh tài liệu để sẵn sàng nộp hồ sơ.';
+        return 'Xác thực tài liệu để hoàn tất nộp hồ sơ.';
       default:
         return '';
     }
@@ -746,9 +715,9 @@ class _QuickStepCard extends StatelessWidget {
         child: Column(
           children: [
             const _IntroBlock(
-              title: 'Nhập thật nhanh để xem khả năng vay',
+              title: 'Cung cấp thông tin đăng ký',
               body:
-                  'Ở bước này bạn chỉ cần SĐT, số tiền mong muốn, nghề nghiệp, thu nhập và mục đích vay.',
+                  'Vui lòng điền đầy đủ số điện thoại, mức thu nhập và nhu cầu vay của bạn.',
             ),
             const SizedBox(height: 16),
             TextField(
@@ -858,7 +827,7 @@ class _PreApprovalCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Hạn mức tạm tính của bạn',
+              'Chi tiết khoản vay',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     color: Colors.white,
                   ),
@@ -872,7 +841,7 @@ class _PreApprovalCard extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              'Bạn đang yêu cầu ${AppFormatters.currency(requestedAmount)} trong $termWeeks tuần (${termWeeks * 7} ngày). Với hồ sơ hiện tại, hệ thống tạm tính có thể hỗ trợ đến ${AppFormatters.currency(amount)} với lãi suất cố định 8% và thanh toán theo tuần.',
+              'Bạn đang yêu cầu vay ${AppFormatters.currency(requestedAmount)} trong $termWeeks tuần (${termWeeks * 7} ngày). Hệ thống hỗ trợ trả góp với số tiền thanh toán mỗi tuần cố định.',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: Colors.white.withValues(alpha: 0.86),
                   ),
@@ -887,7 +856,7 @@ class _PreApprovalCard extends StatelessWidget {
                   value: AppFormatters.currency(estimate.weeklyInstallment),
                 ),
                 _MetricBadge(
-                  label: 'Tổng gốc + lãi',
+                  label: 'Tổng tiền trả',
                   value: AppFormatters.currency(estimate.totalPayable),
                 ),
                 _MetricBadge(
@@ -972,9 +941,9 @@ class _VerificationLightCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const _IntroBlock(
-              title: 'Xác minh nhẹ để tiếp tục hồ sơ',
+              title: 'Bổ sung hồ sơ cá nhân',
               body:
-                  'Ở bước này, bạn chỉ cần hoàn tất hồ sơ cá nhân và đồng bộ danh bạ để hệ thống có thêm thông tin tiếp tục xem xét hồ sơ vay.',
+                  'Hoàn tất thông tin cá nhân và chia sẻ danh bạ để hệ thống tiếp tục xem xét và phê duyệt hồ sơ vay của bạn.',
             ),
             const SizedBox(height: 12),
             _CheckRow(label: 'SĐT đã khai báo', done: phone.isNotEmpty),
@@ -1017,9 +986,9 @@ class _VerificationMainCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const _IntroBlock(
-              title: 'Hoàn tất xác minh chính',
+              title: 'Xác thực giấy tờ tùy thân',
               body:
-                  'Tải CCCD mặt trước, mặt sau và ảnh selfie. Khoản vay sẽ trả theo tuần, lãi suất cố định 8% và có phí phạt nếu quá hạn.',
+                  'Tải lên ảnh CCCD hai mặt và ảnh chân dung để hoàn tất quá trình định danh.',
             ),
             const SizedBox(height: 12),
             _CheckRow(label: 'Hồ sơ cá nhân đã đủ', done: profileComplete),
@@ -1033,7 +1002,7 @@ class _VerificationMainCard extends StatelessWidget {
               ),
               child: Text(
                 documentCount >= 3
-                    ? 'Tốt rồi. Hạn mức hiện tại của bạn đang ở mức ${AppFormatters.currency(provisionalLimit)} và đã sẵn sàng để nộp hồ sơ vay theo tuần.'
+                    ? 'Tốt rồi. Hồ sơ của bạn đã sẵn sàng để nộp.'
                     : 'Bạn đang ở bước cuối. Hoàn tất tài liệu để mở khóa nộp hồ sơ, trả góp theo tuần và tăng cơ hội duyệt nhanh hơn.',
               ),
             ),

@@ -15,6 +15,7 @@ class LoanChartsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isAdmin = ref.watch(currentUserIsAdminProvider);
     final loans = ref.watch(loansProvider).value ?? [];
     final applications = ref.watch(loanApplicationsProvider).value ?? [];
 
@@ -33,6 +34,31 @@ class LoanChartsScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
         children: [
+          if (isAdmin) ...[
+            _AdminKpiGrid(
+              applications: applications,
+              loans: loans,
+            ),
+            const SizedBox(height: 16),
+            _ChartCard(
+              title: 'Trạng thái hồ sơ vay',
+              subtitle: 'Phân loại hồ sơ theo kết quả xử lý hiện tại',
+              icon: Icons.assignment_turned_in_outlined,
+              child: applications.isEmpty
+                  ? const _EmptyChart(message: 'Chưa có hồ sơ vay nào.')
+                  : _ApplicationStatusChart(applications: applications),
+            ),
+            const SizedBox(height: 16),
+            _ChartCard(
+              title: 'Danh mục khoản vay',
+              subtitle: 'Tỷ trọng khoản vay đang hoạt động và đã hoàn tất',
+              icon: Icons.pie_chart_outline_rounded,
+              child: loans.isEmpty
+                  ? const _EmptyChart(message: 'Chưa có khoản vay nào.')
+                  : _LoanPortfolioChart(loans: loans),
+            ),
+            const SizedBox(height: 16),
+          ],
           if (loan != null) ...[
             _SummaryRow(loan: loan, schedules: schedules),
             const SizedBox(height: 16),
@@ -57,12 +83,14 @@ class LoanChartsScreen extends ConsumerWidget {
           ],
           if (loan == null)
             _NoLoanCard(),
-          _ChartCard(
-            title: 'Lịch sử hồ sơ vay',
-            subtitle: '${applications.length} hồ sơ đã nộp',
-            icon: Icons.bar_chart_rounded,
-            child: applications.isEmpty
-                ? const _EmptyChart(message: 'Chưa có hồ sơ vay nào.')
+            _ChartCard(
+              title: isAdmin ? 'Diễn biến hồ sơ theo thời gian' : 'Lịch sử hồ sơ vay',
+              subtitle: isAdmin
+                  ? 'Giá trị hồ sơ theo thứ tự tạo gần nhất'
+                  : '${applications.length} hồ sơ đã nộp',
+              icon: Icons.bar_chart_rounded,
+              child: applications.isEmpty
+                  ? const _EmptyChart(message: 'Chưa có hồ sơ vay nào.')
                 : _ApplicationBarChart(applications: applications),
           ),
         ],
@@ -131,6 +159,129 @@ class _StatChip extends StatelessWidget {
                     .textTheme
                     .titleMedium
                     ?.copyWith(color: color, fontSize: 13)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AdminKpiGrid extends StatelessWidget {
+  const _AdminKpiGrid({
+    required this.applications,
+    required this.loans,
+  });
+
+  final List<LoanApplication> applications;
+  final List<Loan> loans;
+
+  @override
+  Widget build(BuildContext context) {
+    final reviewingCount = applications
+        .where((application) => _applicationStatusKey(application.status) == 'reviewing')
+        .length;
+    final approvedCount = applications
+        .where((application) => _applicationStatusKey(application.status) == 'approved')
+        .length;
+    final activeLoanCount = loans
+        .where((loan) => _loanStatusKey(loan.status) == 'active')
+        .length;
+    final totalOutstanding = loans
+        .where((loan) => _loanStatusKey(loan.status) == 'active')
+        .fold<double>(0, (sum, loan) => sum + loan.principal);
+
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      children: [
+        _KpiCard(
+          label: 'Tổng hồ sơ',
+          value: '${applications.length}',
+          accent: const Color(0xFFE46A11),
+        ),
+        _KpiCard(
+          label: 'Đang duyệt',
+          value: '$reviewingCount',
+          accent: const Color(0xFF1565C0),
+        ),
+        _KpiCard(
+          label: 'Đã duyệt',
+          value: '$approvedCount',
+          accent: const Color(0xFF2E7D32),
+        ),
+        _KpiCard(
+          label: 'Dư nợ active',
+          value: AppFormatters.currency(totalOutstanding),
+          accent: const Color(0xFF7B3FE4),
+          helper: '$activeLoanCount khoản vay',
+          wide: true,
+        ),
+      ],
+    );
+  }
+}
+
+class _KpiCard extends StatelessWidget {
+  const _KpiCard({
+    required this.label,
+    required this.value,
+    required this.accent,
+    this.helper,
+    this.wide = false,
+  });
+
+  final String label;
+  final String value;
+  final Color accent;
+  final String? helper;
+  final bool wide;
+
+  @override
+  Widget build(BuildContext context) {
+    final width = wide ? 340.0 : 164.0;
+    return SizedBox(
+      width: width,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: accent.withValues(alpha: 0.12)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: accent,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              value,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+            if (helper != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                helper!,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: const Color(0xFF7C8A9A),
+                    ),
+              ),
+            ],
           ],
         ),
       ),
@@ -535,6 +686,269 @@ class _ApplicationBarChart extends StatelessWidget {
   }
 }
 
+class _ApplicationStatusChart extends StatelessWidget {
+  const _ApplicationStatusChart({required this.applications});
+
+  final List<LoanApplication> applications;
+
+  @override
+  Widget build(BuildContext context) {
+    final buckets = <_StatusBucket>[
+      _StatusBucket(
+        key: 'reviewing',
+        label: 'Đang duyệt',
+        color: const Color(0xFF1565C0),
+        count: applications
+            .where((application) => _applicationStatusKey(application.status) == 'reviewing')
+            .length,
+      ),
+      _StatusBucket(
+        key: 'approved',
+        label: 'Đã duyệt',
+        color: const Color(0xFF2E7D32),
+        count: applications
+            .where((application) => _applicationStatusKey(application.status) == 'approved')
+            .length,
+      ),
+      _StatusBucket(
+        key: 'rejected',
+        label: 'Từ chối',
+        color: const Color(0xFFD32F2F),
+        count: applications
+            .where((application) => _applicationStatusKey(application.status) == 'rejected')
+            .length,
+      ),
+      _StatusBucket(
+        key: 'other',
+        label: 'Khác',
+        color: const Color(0xFF8A9BAE),
+        count: applications
+            .where((application) => _applicationStatusKey(application.status) == 'other')
+            .length,
+      ),
+    ];
+
+    final maxCount = buckets.fold<int>(1, (max, bucket) => bucket.count > max ? bucket.count : max);
+
+    return Row(
+      children: [
+        Expanded(
+          child: BarChart(
+            BarChartData(
+              alignment: BarChartAlignment.spaceAround,
+              maxY: (maxCount + 1).toDouble(),
+              barGroups: buckets.asMap().entries.map((entry) {
+                final index = entry.key;
+                final bucket = entry.value;
+                return BarChartGroupData(
+                  x: index,
+                  barRods: [
+                    BarChartRodData(
+                      toY: bucket.count.toDouble(),
+                      color: bucket.color,
+                      width: 28,
+                      borderRadius:
+                          const BorderRadius.vertical(top: Radius.circular(8)),
+                    ),
+                  ],
+                );
+              }).toList(),
+              gridData: FlGridData(
+                show: true,
+                drawVerticalLine: false,
+                getDrawingHorizontalLine: (_) =>
+                    const FlLine(color: Color(0xFFF0F4F8), strokeWidth: 1),
+              ),
+              borderData: FlBorderData(show: false),
+              titlesData: FlTitlesData(
+                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                leftTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 28,
+                    interval: 1,
+                    getTitlesWidget: (value, _) => Text(
+                      value.toInt().toString(),
+                      style: const TextStyle(
+                        fontSize: 10,
+                        color: Color(0xFF8A9BAE),
+                      ),
+                    ),
+                  ),
+                ),
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    getTitlesWidget: (value, _) {
+                      final index = value.toInt();
+                      if (index < 0 || index >= buckets.length) {
+                        return const SizedBox.shrink();
+                      }
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Text(
+                          buckets[index].shortLabel,
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: Color(0xFF8A9BAE),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+              barTouchData: BarTouchData(
+                touchTooltipData: BarTouchTooltipData(
+                  getTooltipColor: (_) => const Color(0xFF12343B),
+                  getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                    final bucket = buckets[group.x];
+                    return BarTooltipItem(
+                      '${bucket.label}: ${bucket.count} hồ sơ',
+                      const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+            duration: const Duration(milliseconds: 600),
+            curve: Curves.easeOutCubic,
+          ),
+        ),
+        const SizedBox(width: 16),
+        SizedBox(
+          width: 108,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: buckets
+                .where((bucket) => bucket.count > 0)
+                .map((bucket) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: _Legend(
+                        color: bucket.color,
+                        label: '${bucket.label} (${bucket.count})',
+                      ),
+                    ))
+                .toList(),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _LoanPortfolioChart extends StatelessWidget {
+  const _LoanPortfolioChart({required this.loans});
+
+  final List<Loan> loans;
+
+  @override
+  Widget build(BuildContext context) {
+    final active = loans.where((loan) => _loanStatusKey(loan.status) == 'active').length;
+    final closed = loans.where((loan) => _loanStatusKey(loan.status) == 'closed').length;
+    final other = loans.length - active - closed;
+
+    final sections = <PieChartSectionData>[
+      if (active > 0)
+        PieChartSectionData(
+          value: active.toDouble(),
+          color: const Color(0xFFE46A11),
+          radius: 52,
+          title: '$active',
+          titleStyle: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+            fontSize: 14,
+          ),
+        ),
+      if (closed > 0)
+        PieChartSectionData(
+          value: closed.toDouble(),
+          color: const Color(0xFF2E7D32),
+          radius: 52,
+          title: '$closed',
+          titleStyle: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+            fontSize: 14,
+          ),
+        ),
+      if (other > 0)
+        PieChartSectionData(
+          value: other.toDouble(),
+          color: const Color(0xFF8A9BAE),
+          radius: 52,
+          title: '$other',
+          titleStyle: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+            fontSize: 14,
+          ),
+        ),
+    ];
+
+    final total = loans.length;
+    final activePct = total > 0 ? (active / total * 100).toStringAsFixed(0) : '0';
+
+    return Row(
+      children: [
+        Expanded(
+          child: PieChart(
+            PieChartData(
+              sections: sections.isEmpty
+                  ? [
+                      PieChartSectionData(
+                        value: 1,
+                        color: const Color(0xFFE8F0F5),
+                        radius: 52,
+                        title: '',
+                      ),
+                    ]
+                  : sections,
+              centerSpaceRadius: 52,
+              sectionsSpace: 3,
+              startDegreeOffset: -90,
+            ),
+            duration: const Duration(milliseconds: 600),
+            curve: Curves.easeOutCubic,
+          ),
+        ),
+        const SizedBox(width: 16),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              '$activePct%',
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    color: const Color(0xFFE46A11),
+                  ),
+            ),
+            const Text(
+              'đang active',
+              style: TextStyle(color: Color(0xFF8A9BAE), fontSize: 12),
+            ),
+            const SizedBox(height: 14),
+            _Legend(color: const Color(0xFFE46A11), label: 'Active ($active)'),
+            const SizedBox(height: 6),
+            _Legend(color: const Color(0xFF2E7D32), label: 'Đã tất toán ($closed)'),
+            if (other > 0) ...[
+              const SizedBox(height: 6),
+              _Legend(color: const Color(0xFF8A9BAE), label: 'Khác ($other)'),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+}
+
 // ─── Helper Widgets ───────────────────────────────────────────────────────────
 
 class _EmptyChart extends StatelessWidget {
@@ -593,4 +1007,46 @@ String _fmtM(double v) {
   if (v >= 1e6) return '${(v / 1e6).toStringAsFixed(0)}M';
   if (v >= 1e3) return '${(v / 1e3).toStringAsFixed(0)}K';
   return v.toStringAsFixed(0);
+}
+
+class _StatusBucket {
+  const _StatusBucket({
+    required this.key,
+    required this.label,
+    required this.color,
+    required this.count,
+  });
+
+  final String key;
+  final String label;
+  final Color color;
+  final int count;
+
+  String get shortLabel => label;
+}
+
+String _applicationStatusKey(String status) {
+  switch (status) {
+    case 'reviewing':
+      return 'reviewing';
+    case 'approved':
+      return 'approved';
+    case 'rejected':
+      return 'rejected';
+    default:
+      return 'other';
+  }
+}
+
+String _loanStatusKey(String status) {
+  switch (status) {
+    case 'active':
+      return 'active';
+    case 'closed':
+      return 'closed';
+    case 'defaulted':
+      return 'defaulted';
+    default:
+      return 'other';
+  }
 }

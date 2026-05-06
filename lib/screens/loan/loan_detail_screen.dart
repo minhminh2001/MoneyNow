@@ -84,11 +84,7 @@ class _LoanDetailScreenState extends ConsumerState<LoanDetailScreen> {
           _InfoRow(
               label: 'Gốc vay',
               value: AppFormatters.currency(widget.loan.principal)),
-          _InfoRow(
-            label: 'Lãi suất cố định',
-            value:
-                '${(widget.loan.interestRate * 100).toStringAsFixed(0)}%',
-          ),
+
           _InfoRow(
             label: 'Kỳ hạn',
             value: '${widget.loan.termWeeks} tuần (${widget.loan.termDays} ngày)',
@@ -126,17 +122,26 @@ class _LoanDetailScreenState extends ConsumerState<LoanDetailScreen> {
           const SizedBox(height: 8),
           scheduleAsync.when(
             data: (schedules) {
+              final scheduleIds =
+                  schedules.map((repayment) => repayment.id).toSet();
               final syncedPaidIds = schedules
                   .where((repayment) => repayment.status == 'paid')
                   .map((repayment) => repayment.id)
                   .toSet();
-              final staleOptimisticIds =
-                  _optimisticPaidScheduleIds.difference(syncedPaidIds);
-              if (staleOptimisticIds.isNotEmpty) {
+              final syncedOptimisticIds =
+                  _optimisticPaidScheduleIds.intersection(syncedPaidIds);
+              final missingOptimisticIds =
+                  _optimisticPaidScheduleIds.difference(scheduleIds);
+              final resolvedOptimisticIds = <String>{
+                ...syncedOptimisticIds,
+                ...missingOptimisticIds,
+              };
+              if (resolvedOptimisticIds.isNotEmpty) {
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (!mounted) return;
                   setState(() {
-                    _optimisticPaidScheduleIds.removeAll(staleOptimisticIds);
+                    _optimisticPaidScheduleIds
+                        .removeAll(resolvedOptimisticIds);
                   });
                 });
               }
@@ -158,7 +163,7 @@ class _LoanDetailScreenState extends ConsumerState<LoanDetailScreen> {
                     child: ListTile(
                       title: Text('Kỳ #${repayment.installmentNo}'),
                       subtitle: Text(
-                        'Hạn: ${AppFormatters.date(repayment.dueDate)}\nGốc + lãi: ${AppFormatters.currency(repayment.amount)}\nPhí phạt quá hạn: ${AppFormatters.currency(repayment.overduePenaltyFee)}\nTổng cần trả: ${AppFormatters.currency(repayment.totalDue)}',
+                        'Hạn: ${AppFormatters.date(repayment.dueDate)}\nKỳ trả: ${AppFormatters.currency(repayment.amount)}\nPhí phạt quá hạn: ${AppFormatters.currency(repayment.overduePenaltyFee)}\nTổng cần trả: ${AppFormatters.currency(repayment.totalDue)}',
                       ),
                       isThreeLine: true,
                       trailing: isPaid
