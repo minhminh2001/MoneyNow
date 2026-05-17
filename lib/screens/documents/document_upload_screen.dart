@@ -1,6 +1,6 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/utils/formatters.dart';
@@ -24,6 +24,7 @@ class _DocumentUploadScreenState extends ConsumerState<DocumentUploadScreen> {
     _DocumentType(key: 'id_front', label: 'CCCD mặt trước'),
     _DocumentType(key: 'id_back', label: 'CCCD mặt sau'),
     _DocumentType(key: 'selfie', label: 'Ảnh selfie cầm CCCD'),
+    _DocumentType(key: 'insurance_proof', label: 'Ảnh chụp hồ sơ bảo hiểm'),
   ];
 
   Future<void> _upload(_DocumentType type) async {
@@ -67,11 +68,10 @@ class _DocumentUploadScreenState extends ConsumerState<DocumentUploadScreen> {
       _clearUploadingState();
 
       if (!mounted) return;
-      final message = _buildUploadErrorMessage(error);
       await showAppNoticeDialog(
         context,
         title: 'Tải lên thất bại',
-        message: message,
+        message: _buildUploadErrorMessage(error),
         isError: true,
       );
     } finally {
@@ -136,17 +136,15 @@ class _DocumentUploadScreenState extends ConsumerState<DocumentUploadScreen> {
 
   String _buildUploadErrorMessage(Object error) {
     if (error is FirebaseException) {
-      if (error.plugin == 'firebase_storage' &&
-          error.code == 'unauthorized') {
+      if (error.plugin == 'firebase_storage' && error.code == 'unauthorized') {
         return 'Tài khoản hiện tại chưa có quyền tải tài liệu lên Firebase Storage. '
             'Nếu bạn vừa đổi cấu hình Firebase hoặc vừa đăng nhập, hãy đăng xuất rồi đăng nhập lại. '
             'Nếu vẫn lỗi, cần kiểm tra và deploy lại Storage Rules cho bucket production.';
       }
 
-      if (error.plugin == 'firebase_auth' &&
-          error.code == 'auth-required') {
+      if (error.plugin == 'firebase_auth' && error.code == 'auth-required') {
         return error.message ??
-            'Phiên đăng nhập đã hết. Vui lòng đăng nhập lại rồi thử tải CCCD.';
+            'Phiên đăng nhập đã hết. Vui lòng đăng nhập lại rồi thử tải tài liệu.';
       }
 
       return error.message ?? error.toString();
@@ -251,7 +249,7 @@ class _DocumentUploadScreenState extends ConsumerState<DocumentUploadScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           const Text(
-            'Bạn cần tải đủ 3 ảnh để hệ thống có thể xử lý hồ sơ vay.',
+            'Bạn cần tải đủ CCCD mặt trước, mặt sau và ảnh selfie để hệ thống có thể xử lý hồ sơ vay. Nếu chưa có số bảo hiểm, bạn cũng có thể tải thêm ảnh chụp hồ sơ bảo hiểm ở đây.',
           ),
           const SizedBox(height: 12),
           ..._types.map((type) {
@@ -281,8 +279,7 @@ class _DocumentUploadScreenState extends ConsumerState<DocumentUploadScreen> {
                                   fit: BoxFit.cover,
                                   width: 72,
                                   height: 72,
-                                  errorBuilder:
-                                      (context, error, stackTrace) {
+                                  errorBuilder: (context, error, stackTrace) {
                                     return const Icon(
                                       Icons.image_outlined,
                                       size: 34,
@@ -315,9 +312,7 @@ class _DocumentUploadScreenState extends ConsumerState<DocumentUploadScreen> {
                               style: Theme.of(context)
                                   .textTheme
                                   .bodySmall
-                                  ?.copyWith(
-                                    color: const Color(0xFF7A8A9A),
-                                  ),
+                                  ?.copyWith(color: const Color(0xFF7A8A9A)),
                             ),
                             const SizedBox(height: 10),
                             TextButton.icon(

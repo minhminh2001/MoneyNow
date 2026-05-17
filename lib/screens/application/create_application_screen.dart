@@ -34,6 +34,12 @@ class CreateApplicationScreen extends ConsumerStatefulWidget {
 
 class _CreateApplicationScreenState
     extends ConsumerState<CreateApplicationScreen> {
+  static const Set<String> _requiredKycDocumentTypes = {
+    'id_front',
+    'id_back',
+    'selfie',
+  };
+  static const String _insuranceProofDocumentType = 'insurance_proof';
   static final _incomeNumberFormat = NumberFormat('#,###', 'vi_VN');
   final _contactSyncService = ContactSyncService();
   final _amountController = TextEditingController();
@@ -147,6 +153,7 @@ class _CreateApplicationScreenState
       uid: firebaseUser.uid,
       email: firebaseUser.email ?? currentProfile?.email ?? '',
       role: currentProfile?.role ?? 'user',
+      insuranceNumber: currentProfile?.insuranceNumber ?? '',
       fullName: currentProfile?.fullName ?? '',
       phone: _phone,
       address: currentProfile?.address ?? '',
@@ -220,7 +227,16 @@ class _CreateApplicationScreenState
 
   Future<void> _submit() async {
     final profile = ref.read(userProfileProvider).value;
-    final documentCount = ref.read(userDocumentsProvider).value?.length ?? 0;
+    final documents = ref.read(userDocumentsProvider).value ?? const [];
+    final documentCount = documents
+        .where(
+          (document) =>
+              _requiredKycDocumentTypes.contains(document.type.toLowerCase()),
+        )
+        .length;
+    final hasInsuranceProof = documents.any(
+      (document) => document.type.toLowerCase() == _insuranceProofDocumentType,
+    );
     final applications = ref.read(loanApplicationsProvider).value ?? const [];
     final hasPendingApplication = applications.any(
       (application) => const {'reviewing', 'pending', 'submitted'}
@@ -265,6 +281,18 @@ class _CreateApplicationScreenState
         title: 'Thiếu xác minh chính',
         message:
             'Bạn cần tải đủ CCCD mặt trước, mặt sau và ảnh selfie trước khi nộp.',
+        isError: true,
+      );
+      return;
+    }
+
+    final hasInsuranceNumber = profile?.insuranceNumber.trim().isNotEmpty == true;
+    if (!hasInsuranceNumber && !hasInsuranceProof) {
+      await showAppNoticeDialog(
+        context,
+        title: 'Thiếu thông tin bảo hiểm',
+        message:
+            'Để nộp hồ sơ vay, bạn cần có số bảo hiểm hoặc tải ảnh chụp hồ sơ bảo hiểm. Bạn có thể bổ sung ở hồ sơ cá nhân hoặc màn tài liệu nhé.',
         isError: true,
       );
       return;
@@ -435,7 +463,13 @@ class _CreateApplicationScreenState
   @override
   Widget build(BuildContext context) {
     final profile = ref.watch(userProfileProvider).value;
-    final documentCount = ref.watch(userDocumentsProvider).value?.length ?? 0;
+    final documents = ref.watch(userDocumentsProvider).value ?? const [];
+    final documentCount = documents
+        .where(
+          (document) =>
+              _requiredKycDocumentTypes.contains(document.type.toLowerCase()),
+        )
+        .length;
     final draft = ref.watch(loanDraftProvider).value ?? LoanDraft.empty();
 
     _hydrate(profile: profile, draft: draft);
@@ -594,7 +628,7 @@ class _CreateApplicationScreenState
                       builder: (_) => const DocumentUploadScreen()),
                 );
               },
-              child: const Text('Tải CCCD và ảnh selfie'),
+              child: const Text('Mở màn tài liệu'),
             ),
             const SizedBox(height: 12),
             FilledButton(
@@ -988,7 +1022,7 @@ class _VerificationMainCard extends StatelessWidget {
             const _IntroBlock(
               title: 'Xác thực giấy tờ tùy thân',
               body:
-                  'Tải lên ảnh CCCD hai mặt và ảnh chân dung để hoàn tất quá trình định danh.',
+                  'Tải lên CCCD hai mặt và ảnh chân dung để hoàn tất định danh. Nếu chưa có số bảo hiểm, bạn có thể tải thêm ảnh chụp hồ sơ bảo hiểm trong cùng màn này.',
             ),
             const SizedBox(height: 12),
             _CheckRow(label: 'Hồ sơ cá nhân đã đủ', done: profileComplete),

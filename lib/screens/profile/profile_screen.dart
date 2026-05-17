@@ -27,6 +27,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   final _phoneController = TextEditingController();
   final _addressController = TextEditingController();
   final _nationalIdController = TextEditingController();
+  final _insuranceNumberController = TextEditingController();
   final _employerController = TextEditingController();
   final _monthlyIncomeController = TextEditingController();
 
@@ -47,6 +48,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     _phoneController.dispose();
     _addressController.dispose();
     _nationalIdController.dispose();
+    _insuranceNumberController.dispose();
     _employerController.dispose();
     _monthlyIncomeController.dispose();
     super.dispose();
@@ -58,6 +60,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     _phoneController.text = user.phone;
     _addressController.text = user.address;
     _nationalIdController.text = user.nationalId;
+    _insuranceNumberController.text = user.insuranceNumber;
     _employerController.text = user.employer;
     _monthlyIncomeController.text = user.monthlyIncome == 0
         ? ''
@@ -100,6 +103,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       uid: firebaseUser.uid,
       email: firebaseUser.email ?? currentProfile?.email ?? '',
       role: currentProfile?.role ?? 'user',
+      insuranceNumber: _insuranceNumberController.text.trim(),
       fullName: _fullNameController.text.trim(),
       phone: _phoneController.text.replaceAll(' ', '').trim(),
       address: _addressController.text.trim(),
@@ -418,6 +422,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     }
                     return null;
                   },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _insuranceNumberController,
+                  textInputAction: TextInputAction.next,
+                  decoration: const InputDecoration(
+                    labelText: 'Số bảo hiểm',
+                    helperText:
+                        'Bạn có thể để trống nếu sẽ tải ảnh chụp hồ sơ bảo hiểm ở bước tài liệu.',
+                  ),
                 ),
                 const SizedBox(height: 12),
                 TextFormField(

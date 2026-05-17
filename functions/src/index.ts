@@ -24,6 +24,7 @@ type ManualReviewLoanApplicationPayload = {
 };
 
 const REQUIRED_DOCUMENT_TYPES = ["id_front", "id_back", "selfie"] as const;
+const INSURANCE_DOCUMENT_TYPES = ["insurance_proof"] as const;
 const FIXED_INTEREST_RATE = 0.08;
 const MAX_TERM_WEEKS = 6;
 const OVERDUE_PENALTY_FEE = 50000;
@@ -211,6 +212,7 @@ export const submitLoanApplication = onCall(async (request: any) => {
 
   const user = userSnap.data() ?? {};
   const monthlyIncome = Number(user.monthlyIncome ?? 0);
+  const insuranceNumber = String(user.insuranceNumber ?? "").trim();
   const profileComplete = Boolean(
     user.fullName && user.phone && user.address && user.nationalId,
   );
@@ -225,6 +227,13 @@ export const submitLoanApplication = onCall(async (request: any) => {
   const uploadedTypes = new Set(
     documentSnap.docs.map((doc: any) => String(doc.get("type"))),
   );
+  const hasInsuranceProof = INSURANCE_DOCUMENT_TYPES.some((type) => uploadedTypes.has(type));
+  if (!insuranceNumber && !hasInsuranceProof) {
+    throw new HttpsError(
+      "failed-precondition",
+      "Ban can co so bao hiem hoac tai ho so bao hiem truoc khi nop ho so vay.",
+    );
+  }
   const missingDocs = REQUIRED_DOCUMENT_TYPES.filter((type) => !uploadedTypes.has(type));
   const pendingApplicationSnap = await db
     .collection("loanApplications")

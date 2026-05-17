@@ -5,6 +5,7 @@ class AppUser {
     required this.uid,
     required this.email,
     required this.role,
+    required this.insuranceNumber,
     required this.fullName,
     required this.phone,
     required this.address,
@@ -21,6 +22,7 @@ class AppUser {
   final String uid;
   final String email;
   final String role;
+  final String insuranceNumber;
   final String fullName;
   final String phone;
   final String address;
@@ -41,6 +43,7 @@ class AppUser {
       uid: uid,
       email: email,
       role: 'user',
+      insuranceNumber: '',
       fullName: '',
       phone: '',
       address: '',
@@ -69,6 +72,7 @@ class AppUser {
       role: readString(map['role']).trim().isEmpty
           ? 'user'
           : readString(map['role']).trim(),
+      insuranceNumber: readString(map['insuranceNumber']),
       fullName: readString(map['fullName']),
       phone: readString(map['phone']),
       address: readString(map['address']),
@@ -90,6 +94,7 @@ class AppUser {
       'uid': uid,
       'email': email,
       'role': role,
+      'insuranceNumber': insuranceNumber,
       'fullName': fullName,
       'phone': phone,
       'address': address,

@@ -18,6 +18,12 @@ import '../notifications/notifications_screen.dart';
 import '../profile/profile_screen.dart';
 import '../application/create_application_screen.dart';
 
+const Set<String> _requiredKycDocumentTypes = {
+  'id_front',
+  'id_back',
+  'selfie',
+};
+
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
@@ -32,6 +38,12 @@ class HomeScreen extends ConsumerWidget {
     final profile = profileAsync.value;
     final isAdmin = ref.watch(currentUserIsAdminProvider);
     final documents = documentsAsync.value ?? const [];
+    final kycDocumentCount = documents
+        .where(
+          (document) =>
+              _requiredKycDocumentTypes.contains(document.type.toLowerCase()),
+        )
+        .length;
     final applications = applicationsAsync.value ?? const [];
     final loans = loansAsync.value ?? const [];
     final draft = draftAsync.value ?? LoanDraft.empty();
@@ -43,7 +55,7 @@ class HomeScreen extends ConsumerWidget {
     final flowProgress = _deriveBorrowerFlowProgress(
       draft: draft,
       profile: profile,
-      documentCount: documents.length,
+      documentCount: kycDocumentCount,
     );
     final hasDraft = flowProgress.hasStarted;
     final flowCardTitle = hasPendingApplication
@@ -54,7 +66,7 @@ class HomeScreen extends ConsumerWidget {
     final flowSteps = _buildFlowSteps(
       draft: draft,
       profile: profile,
-      documentCount: documents.length,
+      documentCount: kycDocumentCount,
       hasPendingApplication: hasPendingApplication,
     );
     final completedStepCount = hasPendingApplication
@@ -64,13 +76,13 @@ class HomeScreen extends ConsumerWidget {
     final nextStep = _nextStepLabel(
       draft: draft,
       lightVerificationComplete: profile?.isLightVerificationComplete == true,
-      documentCount: documents.length,
+      documentCount: kycDocumentCount,
       hasPendingApplication: hasPendingApplication,
     );
     final recommendedAction = _recommendedActionLabel(
       draft: draft,
       lightVerificationComplete: profile?.isLightVerificationComplete == true,
-      documentCount: documents.length,
+      documentCount: kycDocumentCount,
       hasPendingApplication: hasPendingApplication,
     );
 
@@ -187,7 +199,7 @@ class HomeScreen extends ConsumerWidget {
                             step: step.step,
                             draft: draft,
                             profile: profile,
-                            documentCount: documents.length,
+                            documentCount: kycDocumentCount,
                           );
                           if (blockedMessage != null) {
                             await HapticFeedback.lightImpact();
@@ -252,7 +264,7 @@ class HomeScreen extends ConsumerWidget {
                 text:
                     'Bạn mới ở bước xác minh nhẹ. Hoàn tất hồ sơ cá nhân để tăng khả năng được duyệt.',
               ),
-            if (!isAdmin && documents.length < 3)
+            if (!isAdmin && kycDocumentCount < 3)
               const _WarningBanner(
                 text:
                     'Bạn chưa hoàn tất xác minh chính. Tải CCCD và ảnh selfie để mở khóa nộp hồ sơ vay.',
@@ -262,7 +274,7 @@ class HomeScreen extends ConsumerWidget {
               _SummaryGrid(
                 items: [
                   _SummaryItem(
-                      label: 'Tài liệu', value: '${documents.length}/3'),
+                      label: 'Tài liệu', value: '$kycDocumentCount/3'),
                   _SummaryItem(
                       label: 'Hồ sơ vay', value: '${applications.length}'),
                   _SummaryItem(label: 'Khoản vay', value: '${loans.length}'),
@@ -283,7 +295,7 @@ class HomeScreen extends ConsumerWidget {
               ),
               _ActionTile(
                 title: 'Bước 2: Xác minh tài liệu',
-                subtitle: 'CCCD mặt trước / mặt sau / ảnh selfie',
+                subtitle: 'CCCD mặt trước / mặt sau / ảnh selfie / ảnh chụp hồ sơ bảo hiểm',
                 icon: Icons.upload_file_outlined,
                 onTap: () {
                   Navigator.of(context).push(

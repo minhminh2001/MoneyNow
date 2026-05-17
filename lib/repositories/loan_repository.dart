@@ -343,10 +343,28 @@ class LoanRepository {
         .doc(user.uid)
         .get()
         .timeout(_callableTimeout);
-    final monthlyIncome = ((userSnap.data() ?? const <String, dynamic>{})['monthlyIncome']
-                as num?)
+    final userData = userSnap.data() ?? const <String, dynamic>{};
+    final monthlyIncome = (userData['monthlyIncome'] as num?)
             ?.toDouble() ??
         0;
+    final insuranceNumber = (userData['insuranceNumber']?.toString() ?? '').trim();
+    final documentSnap = await _firestore
+        .collection('users')
+        .doc(user.uid)
+        .collection('documents')
+        .get()
+        .timeout(_callableTimeout);
+    final hasInsuranceProof = documentSnap.docs.any(
+      (doc) => (doc.data()['type']?.toString() ?? '').trim() == 'insurance_proof',
+    );
+
+    if (insuranceNumber.isEmpty && !hasInsuranceProof) {
+      throw FirebaseFunctionsException(
+        code: 'failed-precondition',
+        message:
+            'Bạn cần có số bảo hiểm hoặc tải hồ sơ bảo hiểm trước khi nộp hồ sơ vay.',
+      );
+    }
 
     final estimate = LoanCalculator.estimate(
       principal: amount,
