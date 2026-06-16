@@ -60,7 +60,18 @@ class ApplicationDetailScreen extends StatelessWidget {
             label: 'Trả hằng tuần',
             value: AppFormatters.currency(application.weeklyInstallment),
           ),
-
+          _InfoRow(
+            label: 'Phí thẩm định hồ sơ (4%)',
+            value: AppFormatters.currency(application.appraisalFee),
+          ),
+          _InfoRow(
+            label: 'Phí dịch vụ (4%)',
+            value: AppFormatters.currency(application.serviceFee),
+          ),
+          _InfoRow(
+            label: 'Số tiền thực nhận',
+            value: AppFormatters.currency(application.netDisbursement),
+          ),
           _InfoRow(
             label: 'Phí phạt quá hạn',
             value: AppFormatters.currency(application.overduePenaltyFee),

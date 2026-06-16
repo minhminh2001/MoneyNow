@@ -102,6 +102,62 @@ class LoanRepository {
     return null;
   }
 
+  Future<
+      ({
+        List<LoanApplication> applications,
+        List<Loan> loans,
+        Map<String, Map<String, dynamic>> userSummaries,
+      })> fetchAdminDashboard() async {
+    final (_, token) = await _requireFreshUserForCurrentProject();
+    final callable = _functionsForActiveSession().httpsCallable(
+      'fetchAdminDashboard',
+    );
+    final result = await callable
+        .call<Map<String, dynamic>>({
+          'idToken': token,
+        })
+        .timeout(_callableTimeout);
+
+    final data = Map<String, dynamic>.from(result.data);
+    final applicationsRaw = (data['applications'] as List? ?? const [])
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
+    final loansRaw = (data['loans'] as List? ?? const [])
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
+    final userSummariesRaw =
+        Map<String, dynamic>.from(data['userSummaries'] as Map? ?? const {});
+
+    final applications = <LoanApplication>[];
+    for (final item in applicationsRaw) {
+      final id = (item['id'] ?? '').toString();
+      if (id.isEmpty) continue;
+      applications.add(LoanApplication.fromMap(id, item));
+    }
+
+    final loans = <Loan>[];
+    for (final item in loansRaw) {
+      final id = (item['id'] ?? '').toString();
+      if (id.isEmpty) continue;
+      loans.add(Loan.fromMap(id, item));
+    }
+
+    final userSummaries = <String, Map<String, dynamic>>{};
+    userSummariesRaw.forEach((key, value) {
+      if (value is Map) {
+        userSummaries[key] = Map<String, dynamic>.from(value);
+      }
+    });
+
+    return (
+      applications: applications,
+      loans: loans,
+      userSummaries: userSummaries,
+    );
+  }
+
   Stream<List<LoanApplication>> streamApplications(String uid) {
     return _firestore
         .collection('loanApplications')
@@ -165,6 +221,23 @@ class LoanRepository {
     }
 
     return result;
+  }
+
+  Future<List<Loan>> fetchAllLoans() async {
+    final snapshot = await _firestore
+        .collection('loans')
+        .orderBy('createdAt', descending: true)
+        .get()
+        .timeout(_callableTimeout);
+    final loans = <Loan>[];
+    for (final doc in snapshot.docs) {
+      try {
+        loans.add(Loan.fromMap(doc.id, doc.data()));
+      } catch (error, stackTrace) {
+        debugPrint('Admin loan parse failed for ${doc.id}: $error\n$stackTrace');
+      }
+    }
+    return loans;
   }
 
   Stream<List<Loan>> streamLoans(String uid) {
@@ -348,21 +421,17 @@ class LoanRepository {
             ?.toDouble() ??
         0;
     final insuranceNumber = (userData['insuranceNumber']?.toString() ?? '').trim();
-    final documentSnap = await _firestore
-        .collection('users')
-        .doc(user.uid)
-        .collection('documents')
-        .get()
-        .timeout(_callableTimeout);
-    final hasInsuranceProof = documentSnap.docs.any(
-      (doc) => (doc.data()['type']?.toString() ?? '').trim() == 'insurance_proof',
-    );
-
-    if (insuranceNumber.isEmpty && !hasInsuranceProof) {
+    final payoutAccountHolder =
+        (userData['payoutAccountHolder']?.toString() ?? '').trim();
+    final payoutBankName =
+        (userData['payoutBankName']?.toString() ?? '').trim();
+    final payoutAccountNumber =
+        (userData['payoutAccountNumber']?.toString() ?? '').trim();
+    if (insuranceNumber.isEmpty) {
       throw FirebaseFunctionsException(
         code: 'failed-precondition',
         message:
-            'Bạn cần có số bảo hiểm hoặc tải hồ sơ bảo hiểm trước khi nộp hồ sơ vay.',
+            'Bạn cần nhập số bảo hiểm trước khi nộp hồ sơ vay.',
       );
     }
 
@@ -376,8 +445,14 @@ class LoanRepository {
         .set({
           'uid': user.uid,
           'amount': amount,
+          'appraisalFee': estimate.appraisalFee,
+          'serviceFee': estimate.serviceFee,
+          'netDisbursement': estimate.netDisbursement,
           'termWeeks': termWeeks,
           'monthlyIncome': monthlyIncome,
+          'borrowerPayoutAccountHolder': payoutAccountHolder,
+          'borrowerPayoutBankName': payoutBankName,
+          'borrowerPayoutAccountNumber': payoutAccountNumber,
           'weeklyInstallment': estimate.weeklyInstallment,
           'interestRate': LoanPolicy.fixedInterestRate,
           'overduePenaltyFee': LoanPolicy.overduePenaltyFee,
@@ -504,6 +579,7 @@ class LoanRepository {
             .toString()
             .trim()
             .toLowerCase();
+    final reviewerData = reviewerSnap.data() ?? const <String, dynamic>{};
     if (reviewerRole != 'admin') {
       throw FirebaseFunctionsException(
         code: 'permission-denied',
@@ -588,6 +664,22 @@ class LoanRepository {
         'uid': applicantUid,
         'applicationId': applicationId,
         'principal': amount,
+        'appraisalFee': estimate.appraisalFee,
+        'serviceFee': estimate.serviceFee,
+        'netDisbursement': estimate.netDisbursement,
+        'borrowerPayoutAccountHolder':
+            (application['borrowerPayoutAccountHolder'] ?? '').toString(),
+        'borrowerPayoutBankName':
+            (application['borrowerPayoutBankName'] ?? '').toString(),
+        'borrowerPayoutAccountNumber':
+            (application['borrowerPayoutAccountNumber'] ?? '').toString(),
+        'repaymentAccountHolder':
+            (reviewerData['repaymentAccountHolder'] ?? '').toString(),
+        'repaymentBankName':
+            (reviewerData['repaymentBankName'] ?? '').toString(),
+        'repaymentAccountNumber':
+            (reviewerData['repaymentAccountNumber'] ?? '').toString(),
+        'repaymentTransferNote': 'TRA NO ${loanRef.id}',
         'interestRate': LoanPolicy.fixedInterestRate,
         'termWeeks': termWeeks,
         'weeklyInstallment': estimate.weeklyInstallment,

@@ -24,7 +24,7 @@ class _DocumentUploadScreenState extends ConsumerState<DocumentUploadScreen> {
     _DocumentType(key: 'id_front', label: 'CCCD mặt trước'),
     _DocumentType(key: 'id_back', label: 'CCCD mặt sau'),
     _DocumentType(key: 'selfie', label: 'Ảnh selfie cầm CCCD'),
-    _DocumentType(key: 'insurance_proof', label: 'Ảnh chụp hồ sơ bảo hiểm'),
+    _DocumentType(key: 'insurance_proof', label: 'Ảnh sao kê bảng lương'),
   ];
 
   Future<void> _upload(_DocumentType type) async {
@@ -36,7 +36,9 @@ class _DocumentUploadScreenState extends ConsumerState<DocumentUploadScreen> {
 
     final file = await _picker.pickImage(
       source: source,
-      imageQuality: 85,
+      imageQuality: 70,
+      maxWidth: 1600,
+      maxHeight: 1600,
       preferredCameraDevice: CameraDevice.rear,
     );
     if (file == null) return;
@@ -136,6 +138,14 @@ class _DocumentUploadScreenState extends ConsumerState<DocumentUploadScreen> {
 
   String _buildUploadErrorMessage(Object error) {
     if (error is FirebaseException) {
+      if (error.plugin == 'firebase_storage' &&
+          (error.code == 'quota-exceeded' ||
+              (error.message?.toLowerCase().contains('quota') ?? false))) {
+        return 'Dung lượng hoặc hạn mức Firebase Storage của hệ thống hiện đã chạm ngưỡng. '
+            'Ảnh của bạn chưa được tải lên. '
+            'Cần vào Firebase Console để tăng quota, dọn bớt file cũ hoặc nâng gói Storage của project `loan-a782e`.';
+      }
+
       if (error.plugin == 'firebase_storage' && error.code == 'unauthorized') {
         return 'Tài khoản hiện tại chưa có quyền tải tài liệu lên Firebase Storage. '
             'Nếu bạn vừa đổi cấu hình Firebase hoặc vừa đăng nhập, hãy đăng xuất rồi đăng nhập lại. '
@@ -249,7 +259,7 @@ class _DocumentUploadScreenState extends ConsumerState<DocumentUploadScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           const Text(
-            'Bạn cần tải đủ CCCD mặt trước, mặt sau và ảnh selfie để hệ thống có thể xử lý hồ sơ vay. Nếu chưa có số bảo hiểm, bạn cũng có thể tải thêm ảnh chụp hồ sơ bảo hiểm ở đây.',
+            'Bạn cần tải đủ CCCD mặt trước, mặt sau và ảnh selfie để hệ thống có thể xử lý hồ sơ vay. Nếu chưa có số bảo hiểm, bạn cũng có thể tải thêm ảnh sao kê bảng lương ở đây.',
           ),
           const SizedBox(height: 12),
           ..._types.map((type) {

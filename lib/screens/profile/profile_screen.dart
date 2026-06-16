@@ -30,6 +30,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   final _insuranceNumberController = TextEditingController();
   final _employerController = TextEditingController();
   final _monthlyIncomeController = TextEditingController();
+  final _payoutAccountHolderController = TextEditingController();
+  final _payoutBankNameController = TextEditingController();
+  final _payoutAccountNumberController = TextEditingController();
+  final _repaymentAccountHolderController = TextEditingController();
+  final _repaymentBankNameController = TextEditingController();
+  final _repaymentAccountNumberController = TextEditingController();
 
   bool _loading = false;
   bool _preparingContacts = false;
@@ -51,6 +57,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     _insuranceNumberController.dispose();
     _employerController.dispose();
     _monthlyIncomeController.dispose();
+    _payoutAccountHolderController.dispose();
+    _payoutBankNameController.dispose();
+    _payoutAccountNumberController.dispose();
+    _repaymentAccountHolderController.dispose();
+    _repaymentBankNameController.dispose();
+    _repaymentAccountNumberController.dispose();
     super.dispose();
   }
 
@@ -65,6 +77,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     _monthlyIncomeController.text = user.monthlyIncome == 0
         ? ''
         : _incomeNumberFormat.format(user.monthlyIncome.round());
+    _payoutAccountHolderController.text = user.payoutAccountHolder;
+    _payoutBankNameController.text = user.payoutBankName;
+    _payoutAccountNumberController.text = user.payoutAccountNumber;
+    _repaymentAccountHolderController.text = user.repaymentAccountHolder;
+    _repaymentBankNameController.text = user.repaymentBankName;
+    _repaymentAccountNumberController.text = user.repaymentAccountNumber;
     _hydrated = true;
   }
 
@@ -101,7 +119,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
     final updatedUser = AppUser(
       uid: firebaseUser.uid,
-      email: firebaseUser.email ?? currentProfile?.email ?? '',
+      email: firebaseUser.email ??
+          firebaseUser.phoneNumber ??
+          currentProfile?.email ??
+          '',
       role: currentProfile?.role ?? 'user',
       insuranceNumber: _insuranceNumberController.text.trim(),
       fullName: _fullNameController.text.trim(),
@@ -110,6 +131,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       nationalId: _nationalIdController.text.trim(),
       employer: _employerController.text.trim(),
       monthlyIncome: monthlyIncome,
+      payoutAccountHolder: _payoutAccountHolderController.text.trim(),
+      payoutBankName: _payoutBankNameController.text.trim(),
+      payoutAccountNumber: _payoutAccountNumberController.text.trim(),
+      repaymentAccountHolder: _repaymentAccountHolderController.text.trim(),
+      repaymentBankName: _repaymentBankNameController.text.trim(),
+      repaymentAccountNumber: _repaymentAccountNumberController.text.trim(),
       kycStatus: currentProfile?.kycStatus ?? 'pending',
       contactsSyncCount: currentProfile?.contactsSyncCount ?? 0,
       contactsSyncedAt: currentProfile?.contactsSyncedAt,
@@ -146,7 +173,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       if (saveTimedOut) {
         setState(() {
           _loading = false;
-          _saveStatusText = 'Kết nối đang chậm. Hồ sơ sẽ tiếp tục đồng bộ nền...';
+          _saveStatusText =
+              'Kết nối đang chậm. Hồ sơ sẽ tiếp tục đồng bộ nền...';
         });
         await showAppNoticeDialog(
           context,
@@ -187,7 +215,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   void _startContactsSync() {
     final firebaseUser = ref.read(currentUserProvider);
-    if (firebaseUser == null || _preparingContacts || _backgroundSyncingContacts) {
+    if (firebaseUser == null ||
+        _preparingContacts ||
+        _backgroundSyncingContacts) {
       return;
     }
 
@@ -260,17 +290,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   ) async {
     try {
       await ref.read(profileRepositoryProvider).savePhoneContacts(
-        uid: uid,
-        contacts: contacts,
-        onProgress: (processed, total, message) {
-          if (!mounted) return;
-          setState(() {
-            _contactsSyncProcessed = processed;
-            _contactsSyncTotal = total;
-            _contactsSyncStatusText = message;
-          });
-        },
-      );
+            uid: uid,
+            contacts: contacts,
+            onProgress: (processed, total, message) {
+              if (!mounted) return;
+              setState(() {
+                _contactsSyncProcessed = processed;
+                _contactsSyncTotal = total;
+                _contactsSyncStatusText = message;
+              });
+            },
+          );
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -428,10 +458,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   controller: _insuranceNumberController,
                   textInputAction: TextInputAction.next,
                   decoration: const InputDecoration(
-                    labelText: 'Số bảo hiểm',
-                    helperText:
-                        'Bạn có thể để trống nếu sẽ tải ảnh chụp hồ sơ bảo hiểm ở bước tài liệu.',
+                    labelText: 'Số bảo hiểm *',
+                    helperText: 'Trường này là bắt buộc.',
                   ),
+                  validator: (value) {
+                    if ((value ?? '').trim().isEmpty) {
+                      return 'Vui lòng nhập số bảo hiểm';
+                    }
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
@@ -477,6 +512,105 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
                 const SizedBox(height: 16),
                 Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Thông tin nhận giải ngân',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 6),
+                        const Text(
+                          'Người vay khai báo tài khoản ngân hàng để hệ thống hoặc admin có căn cứ chuyển tiền giải ngân khi hồ sơ được duyệt.',
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _payoutAccountHolderController,
+                          textInputAction: TextInputAction.next,
+                          decoration: const InputDecoration(
+                            labelText: 'Chủ tài khoản nhận giải ngân',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _payoutBankNameController,
+                          textInputAction: TextInputAction.next,
+                          decoration: const InputDecoration(
+                            labelText: 'Ngân hàng nhận giải ngân',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _payoutAccountNumberController,
+                          keyboardType: TextInputType.number,
+                          textInputAction: TextInputAction.next,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(24),
+                          ],
+                          decoration: const InputDecoration(
+                            labelText: 'Số tài khoản nhận giải ngân',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (currentProfile?.isAdmin == true) ...[
+                  const SizedBox(height: 16),
+                  Card(
+                    color: const Color(0xFFEFF8FF),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Thông tin nhận trả nợ từ khách hàng',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 6),
+                          const Text(
+                            'Phần này dành cho admin/chủ app. Người vay sẽ nhìn thấy thông tin này trong chi tiết khoản vay để chuyển khoản trả nợ định kỳ.',
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _repaymentAccountHolderController,
+                            textInputAction: TextInputAction.next,
+                            decoration: const InputDecoration(
+                              labelText: 'Chủ tài khoản nhận trả nợ',
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _repaymentBankNameController,
+                            textInputAction: TextInputAction.next,
+                            decoration: const InputDecoration(
+                              labelText: 'Ngân hàng nhận trả nợ',
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _repaymentAccountNumberController,
+                            keyboardType: TextInputType.number,
+                            textInputAction: TextInputAction.done,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                              LengthLimitingTextInputFormatter(24),
+                            ],
+                            decoration: const InputDecoration(
+                              labelText: 'Số tài khoản nhận trả nợ',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 16),
+                Card(
                   color: const Color(0xFFFFF3E7),
                   child: Padding(
                     padding: const EdgeInsets.all(16),
@@ -496,8 +630,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           (_preparingContacts || _backgroundSyncingContacts)
                               ? 'Đang xử lý đồng bộ danh bạ. Bạn vẫn có thể tiếp tục thao tác trong app.'
                               : currentProfile?.hasSyncedContacts == true
-                              ? 'Đã đồng bộ ${currentProfile!.contactsSyncCount} liên hệ'
-                              : 'Bạn chưa đồng bộ danh bạ. Hoàn tất bước này sẽ giúp hồ sơ được tiếp tục xử lý thuận lợi hơn.',
+                                  ? 'Đã đồng bộ ${currentProfile!.contactsSyncCount} liên hệ'
+                                  : 'Bạn chưa đồng bộ danh bạ. Hoàn tất bước này sẽ giúp hồ sơ được tiếp tục xử lý thuận lợi hơn.',
                           style: Theme.of(context).textTheme.bodyMedium,
                         ),
                         if (_contactsSyncStatusText != null) ...[
@@ -507,15 +641,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             style: Theme.of(context).textTheme.bodyMedium,
                           ),
                         ],
-                        if (_preparingContacts || _backgroundSyncingContacts) ...[
+                        if (_preparingContacts ||
+                            _backgroundSyncingContacts) ...[
                           const SizedBox(height: 10),
                           LinearProgressIndicator(
                             value: _backgroundSyncingContacts
                                 ? null
                                 : _contactsSyncTotal > 0
-                                ? (_contactsSyncProcessed / _contactsSyncTotal)
-                                    .clamp(0, 1)
-                                : null,
+                                    ? (_contactsSyncProcessed /
+                                            _contactsSyncTotal)
+                                        .clamp(0, 1)
+                                    : null,
                             borderRadius: BorderRadius.circular(999),
                             minHeight: 8,
                           ),
@@ -538,7 +674,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 ? 'Đang chuẩn bị danh bạ...'
                                 : _backgroundSyncingContacts
                                     ? 'Đang đồng bộ nền...'
-                                : 'Cho phép truy cập danh bạ',
+                                    : 'Cho phép truy cập danh bạ',
                           ),
                         ),
                       ],

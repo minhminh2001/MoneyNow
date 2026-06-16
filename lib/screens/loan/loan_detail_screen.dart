@@ -94,6 +94,18 @@ class _LoanDetailScreenState extends ConsumerState<LoanDetailScreen> {
             value: AppFormatters.currency(widget.loan.weeklyInstallment),
           ),
           _InfoRow(
+            label: 'Phí thẩm định hồ sơ (4%)',
+            value: AppFormatters.currency(widget.loan.appraisalFee),
+          ),
+          _InfoRow(
+            label: 'Phí dịch vụ (4%)',
+            value: AppFormatters.currency(widget.loan.serviceFee),
+          ),
+          _InfoRow(
+            label: 'Số tiền thực nhận',
+            value: AppFormatters.currency(widget.loan.netDisbursement),
+          ),
+          _InfoRow(
             label: 'Phí phạt quá hạn',
             value: AppFormatters.currency(widget.loan.overduePenaltyFee),
           ),
@@ -104,6 +116,64 @@ class _LoanDetailScreenState extends ConsumerState<LoanDetailScreen> {
             label: 'Kỳ tiếp theo',
             value: AppFormatters.date(widget.loan.nextDueDate),
           ),
+          if (widget.loan.borrowerPayoutAccountHolder.isNotEmpty ||
+              widget.loan.borrowerPayoutBankName.isNotEmpty ||
+              widget.loan.borrowerPayoutAccountNumber.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _PaymentInfoCard(
+              title: 'Tài khoản nhận giải ngân của bạn',
+              rows: [
+                if (widget.loan.borrowerPayoutAccountHolder.isNotEmpty)
+                  _PaymentRowData(
+                    'Chủ tài khoản',
+                    widget.loan.borrowerPayoutAccountHolder,
+                  ),
+                if (widget.loan.borrowerPayoutBankName.isNotEmpty)
+                  _PaymentRowData(
+                    'Ngân hàng',
+                    widget.loan.borrowerPayoutBankName,
+                  ),
+                if (widget.loan.borrowerPayoutAccountNumber.isNotEmpty)
+                  _PaymentRowData(
+                    'Số tài khoản',
+                    widget.loan.borrowerPayoutAccountNumber,
+                  ),
+              ],
+            ),
+          ],
+          if (widget.loan.repaymentAccountHolder.isNotEmpty ||
+              widget.loan.repaymentBankName.isNotEmpty ||
+              widget.loan.repaymentAccountNumber.isNotEmpty ||
+              widget.loan.repaymentTransferNote.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _PaymentInfoCard(
+              title: 'Thông tin chuyển khoản trả nợ',
+              subtitle:
+                  'Dùng thông tin dưới đây khi bạn chuyển khoản thanh toán kỳ vay.',
+              rows: [
+                if (widget.loan.repaymentAccountHolder.isNotEmpty)
+                  _PaymentRowData(
+                    'Chủ tài khoản',
+                    widget.loan.repaymentAccountHolder,
+                  ),
+                if (widget.loan.repaymentBankName.isNotEmpty)
+                  _PaymentRowData(
+                    'Ngân hàng',
+                    widget.loan.repaymentBankName,
+                  ),
+                if (widget.loan.repaymentAccountNumber.isNotEmpty)
+                  _PaymentRowData(
+                    'Số tài khoản',
+                    widget.loan.repaymentAccountNumber,
+                  ),
+                if (widget.loan.repaymentTransferNote.isNotEmpty)
+                  _PaymentRowData(
+                    'Nội dung chuyển khoản',
+                    widget.loan.repaymentTransferNote,
+                  ),
+              ],
+            ),
+          ],
           const SizedBox(height: 12),
           OutlinedButton.icon(
             onPressed: () => Navigator.of(context).push(
@@ -207,4 +277,79 @@ class _InfoRow extends StatelessWidget {
       ),
     );
   }
+}
+
+class _PaymentInfoCard extends StatelessWidget {
+  const _PaymentInfoCard({
+    required this.title,
+    required this.rows,
+    this.subtitle,
+  });
+
+  final String title;
+  final String? subtitle;
+  final List<_PaymentRowData> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            if (subtitle != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                subtitle!,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: const Color(0xFF5B6B7E),
+                    ),
+              ),
+            ],
+            const SizedBox(height: 12),
+            ...rows.map(
+              (row) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: 150,
+                      child: Text(
+                        row.label,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: const Color(0xFF6B7A90),
+                            ),
+                      ),
+                    ),
+                    Expanded(
+                      child: SelectableText(
+                        row.value,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              color: const Color(0xFF12343B),
+                              fontWeight: FontWeight.w700,
+                            ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PaymentRowData {
+  const _PaymentRowData(this.label, this.value);
+
+  final String label;
+  final String value;
 }

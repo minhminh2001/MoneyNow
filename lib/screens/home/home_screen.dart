@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/utils/formatters.dart';
@@ -27,6 +27,20 @@ const Set<String> _requiredKycDocumentTypes = {
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
+  Future<void> _signOut(BuildContext context, WidgetRef ref) async {
+    try {
+      await ref.read(authRepositoryProvider).signOut();
+    } catch (error) {
+      if (!context.mounted) return;
+      await showAppNoticeDialog(
+        context,
+        title: 'Không thể đăng xuất',
+        message: 'Đăng xuất chưa hoàn tất. Vui lòng thử lại.\n$error',
+        isError: true,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profileAsync = ref.watch(userProfileProvider);
@@ -48,9 +62,8 @@ class HomeScreen extends ConsumerWidget {
     final loans = loansAsync.value ?? const [];
     final draft = draftAsync.value ?? LoanDraft.empty();
     final hasPendingApplication = applications.any(_isPendingApplication);
-    final pendingApplication = hasPendingApplication
-        ? _latestPendingApplication(applications)
-        : null;
+    final pendingApplication =
+        hasPendingApplication ? _latestPendingApplication(applications) : null;
     final user = ref.watch(currentUserProvider);
     final flowProgress = _deriveBorrowerFlowProgress(
       draft: draft,
@@ -61,18 +74,19 @@ class HomeScreen extends ConsumerWidget {
     final flowCardTitle = hasPendingApplication
         ? 'Hồ sơ vay đang chờ duyệt'
         : (hasDraft ? 'Tiếp tục hồ sơ vay' : 'Bắt đầu hồ sơ vay mới');
-    final flowPrimaryActionLabel =
-        hasPendingApplication ? 'Xem hồ sơ vay' : (hasDraft ? 'Tiếp tục ngay' : 'Bắt đầu ngay');
+    final flowPrimaryActionLabel = hasPendingApplication
+        ? 'Xem hồ sơ vay'
+        : (hasDraft ? 'Tiếp tục ngay' : 'Bắt đầu ngay');
     final flowSteps = _buildFlowSteps(
       draft: draft,
       profile: profile,
       documentCount: kycDocumentCount,
       hasPendingApplication: hasPendingApplication,
     );
-    final completedStepCount = hasPendingApplication
-        ? 4
-        : flowProgress.completedStepCount;
-    final currentFlowStep = hasPendingApplication ? 4 : flowProgress.currentStep;
+    final completedStepCount =
+        hasPendingApplication ? 4 : flowProgress.completedStepCount;
+    final currentFlowStep =
+        hasPendingApplication ? 4 : flowProgress.currentStep;
     final nextStep = _nextStepLabel(
       draft: draft,
       lightVerificationComplete: profile?.isLightVerificationComplete == true,
@@ -88,7 +102,7 @@ class HomeScreen extends ConsumerWidget {
 
     final displayName = profile?.fullName.isNotEmpty == true
         ? profile!.fullName
-        : (user?.email ?? 'Người dùng');
+        : (user?.phoneNumber ?? user?.email ?? 'Người dùng');
 
     final unreadCount = ref.watch(unreadNotificationCountProvider);
 
@@ -123,8 +137,7 @@ class HomeScreen extends ConsumerWidget {
             tooltip: 'Thông báo',
             onPressed: () {
               Navigator.of(context).push(
-                MaterialPageRoute(
-                    builder: (_) => const NotificationsScreen()),
+                MaterialPageRoute(builder: (_) => const NotificationsScreen()),
               );
             },
             icon: Badge(
@@ -136,7 +149,7 @@ class HomeScreen extends ConsumerWidget {
           ),
           IconButton(
             tooltip: 'Đăng xuất',
-            onPressed: () => ref.read(authRepositoryProvider).signOut(),
+            onPressed: () => _signOut(context, ref),
             icon: const Icon(Icons.logout),
           ),
         ],
@@ -154,7 +167,7 @@ class HomeScreen extends ConsumerWidget {
             if (!isAdmin)
               _HeroGreetingCard(
                 displayName: displayName,
-                email: user?.email ?? '--',
+                email: user?.phoneNumber ?? user?.email ?? '--',
                 profile: profile,
                 hasPendingApplication: hasPendingApplication,
               ),
@@ -262,19 +275,18 @@ class HomeScreen extends ConsumerWidget {
             if (!isAdmin && profile != null && !profile.isProfileComplete)
               const _WarningBanner(
                 text:
-                    'Bạn mới ở bước xác minh nhẹ. Hoàn tất hồ sơ cá nhân để tăng khả năng được duyệt.',
+                    'Hồ sơ cá nhân của bạn chưa đầy đủ. Vui lòng cập nhật thông tin để hệ thống tiếp nhận hồ sơ chính xác hơn.',
               ),
             if (!isAdmin && kycDocumentCount < 3)
               const _WarningBanner(
                 text:
-                    'Bạn chưa hoàn tất xác minh chính. Tải CCCD và ảnh selfie để mở khóa nộp hồ sơ vay.',
+                    'Bạn chưa hoàn tất xác minh tài liệu. Vui lòng tải CCCD và ảnh selfie trước khi nộp hồ sơ vay.',
               ),
             const SizedBox(height: 12),
             if (!isAdmin) ...[
               _SummaryGrid(
                 items: [
-                  _SummaryItem(
-                      label: 'Tài liệu', value: '$kycDocumentCount/3'),
+                  _SummaryItem(label: 'Tài liệu', value: '$kycDocumentCount/3'),
                   _SummaryItem(
                       label: 'Hồ sơ vay', value: '${applications.length}'),
                   _SummaryItem(label: 'Khoản vay', value: '${loans.length}'),
@@ -295,7 +307,8 @@ class HomeScreen extends ConsumerWidget {
               ),
               _ActionTile(
                 title: 'Bước 2: Xác minh tài liệu',
-                subtitle: 'CCCD mặt trước / mặt sau / ảnh selfie / ảnh chụp hồ sơ bảo hiểm',
+                subtitle:
+                    'CCCD mặt trước / mặt sau / ảnh selfie / ảnh sao kê bảng lương',
                 icon: Icons.upload_file_outlined,
                 onTap: () {
                   Navigator.of(context).push(
@@ -305,8 +318,8 @@ class HomeScreen extends ConsumerWidget {
                 },
               ),
               _ActionTile(
-                title: 'Kiểm tra hạn mức tạm tính',
-                subtitle: 'Tính khoản vay tự động cho bạn',
+                title: 'Xem ước tính khoản vay',
+                subtitle: 'Xem kết quả tham khảo theo thông tin đã khai',
                 icon: Icons.request_quote_outlined,
                 onTap: () async {
                   if (hasPendingApplication) {
@@ -342,8 +355,7 @@ class HomeScreen extends ConsumerWidget {
                 icon: Icons.area_chart_rounded,
                 onTap: () {
                   Navigator.of(context).push(
-                    MaterialPageRoute(
-                        builder: (_) => const LoanChartsScreen()),
+                    MaterialPageRoute(builder: (_) => const LoanChartsScreen()),
                   );
                 },
               ),
@@ -390,7 +402,8 @@ class HomeScreen extends ConsumerWidget {
                   ),
                   _AdminActionItem(
                     title: 'Khoản vay',
-                    subtitle: 'Kiểm tra lịch thanh toán và trạng thái khoản vay',
+                    subtitle:
+                        'Kiểm tra lịch thanh toán và trạng thái khoản vay',
                     icon: Icons.account_balance_wallet_outlined,
                     onTap: () {
                       Navigator.of(context).push(
@@ -487,13 +500,13 @@ String _recommendedActionLabel({
   );
 
   if (!progress.quickInfoDone) {
-    return 'Điền SĐT, số tiền vay và mục đích vay để mở khóa bước hạn mức.';
+    return 'Điền SĐT, số tiền vay và mục đích vay để tiếp tục xem kết quả ước tính.';
   }
   if (!progress.preApprovalDone) {
-    return 'Xem kết quả sơ bộ để biết hạn mức tạm tính của bạn.';
+    return 'Xem kết quả sơ bộ để tham khảo khoản vay phù hợp.';
   }
   if (!progress.lightVerificationDone) {
-    return 'Hoàn tất hồ sơ cá nhân và đồng bộ danh bạ để mở khóa bước nộp hồ sơ.';
+    return 'Hoàn tất hồ sơ cá nhân và đồng bộ danh bạ để tiếp tục bước nộp hồ sơ.';
   }
   if (!progress.mainVerificationDone) {
     return 'Tải đủ CCCD mặt trước, mặt sau và ảnh selfie để hoàn tất KYC.';
@@ -515,10 +528,10 @@ String? _blockedStepMessage({
 
   if (step == 1) return null;
   if (step == 2 && !progress.quickInfoDone) {
-    return 'Bạn cần hoàn tất bước 1: khai báo nhanh trước khi xem hạn mức tạm tính.';
+    return 'Bạn cần hoàn tất bước 1: khai báo nhanh trước khi xem kết quả ước tính.';
   }
   if (step == 3 && !progress.preApprovalDone) {
-    return 'Bạn cần hoàn tất bước 1 và xem kết quả sơ bộ ở bước 2 trước khi sang xác minh nhẹ.';
+    return 'Bạn cần hoàn tất bước 1 và xem kết quả sơ bộ ở bước 2 trước khi sang bước xác minh thông tin.';
   }
   if (step == 4 && !progress.lightVerificationDone) {
     return 'Bạn cần hoàn tất bước 3: hồ sơ cá nhân và đồng bộ danh bạ bắt buộc trước khi sang bước nộp hồ sơ.';
@@ -544,7 +557,7 @@ List<_FlowStepData> _buildFlowSteps({
       ),
       _FlowStepData(
         step: 2,
-        text: '2. Xem hạn mức',
+        text: '2. Xem ước tính',
         status: _FlowStepStatus.upcoming,
       ),
       _FlowStepData(
@@ -583,7 +596,7 @@ List<_FlowStepData> _buildFlowSteps({
     ),
     _FlowStepData(
       step: 2,
-      text: '2. Xem hạn mức',
+      text: '2. Xem ước tính',
       status: statusFor(step: 2, done: progress.preApprovalDone),
     ),
     _FlowStepData(
@@ -605,8 +618,7 @@ _BorrowerFlowProgress _deriveBorrowerFlowProgress({
   required int documentCount,
   bool? lightVerificationCompleteOverride,
 }) {
-  final quickInfoReady =
-      draft.requestedAmount > 0 &&
+  final quickInfoReady = draft.requestedAmount > 0 &&
       draft.phone.isNotEmpty &&
       draft.monthlyIncome > 0 &&
       draft.employer.isNotEmpty &&
@@ -614,8 +626,8 @@ _BorrowerFlowProgress _deriveBorrowerFlowProgress({
   final quickInfoDone = draft.currentStep >= 2 || quickInfoReady;
 
   final preApprovalDone = quickInfoDone && draft.currentStep >= 3;
-  final lightVerificationReady =
-      lightVerificationCompleteOverride ?? (profile?.isLightVerificationComplete == true);
+  final lightVerificationReady = lightVerificationCompleteOverride ??
+      (profile?.isLightVerificationComplete == true);
   final lightVerificationDone = preApprovalDone && lightVerificationReady;
   final mainVerificationReady = documentCount >= 3;
   final mainVerificationDone = lightVerificationDone && mainVerificationReady;
@@ -638,7 +650,10 @@ _BorrowerFlowProgress _deriveBorrowerFlowProgress({
     mainVerificationDone,
   ].where((done) => done).length;
 
-  final hasStarted = quickInfoDone || preApprovalDone || lightVerificationDone || mainVerificationDone;
+  final hasStarted = quickInfoDone ||
+      preApprovalDone ||
+      lightVerificationDone ||
+      mainVerificationDone;
 
   return _BorrowerFlowProgress(
     quickInfoDone: quickInfoDone,
@@ -825,18 +840,16 @@ class _AdminDashboardCard extends StatelessWidget {
                     children: [
                       Text(
                         'Bảng điều khiển quản trị',
-                        style:
-                            Theme.of(context).textTheme.titleLarge?.copyWith(
-                                  color: Colors.white,
-                                ),
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              color: Colors.white,
+                            ),
                       ),
                       const SizedBox(height: 6),
                       Text(
                         'Phiên đăng nhập hiện tại: $roleLabel',
-                        style:
-                            Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: Colors.white.withValues(alpha: 0.82),
-                                ),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Colors.white.withValues(alpha: 0.82),
+                            ),
                       ),
                     ],
                   ),
@@ -1048,7 +1061,7 @@ class _HeroGreetingCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final supportText = hasPendingApplication
         ? 'Hồ sơ của bạn đang được kiểm tra. Mình sẽ đồng hành cùng bạn trong lúc chờ kết quả.'
-        : 'Tiếp tục hồ sơ để tăng cơ hội được duyệt nhanh hơn.';
+        : 'Tiếp tục hồ sơ để bổ sung đầy đủ thông tin trước khi được xem xét.';
 
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.98, end: 1),
@@ -1394,6 +1407,7 @@ class _FlowOverviewCard extends StatelessWidget {
     );
   }
 }
+
 class _ActionTile extends StatelessWidget {
   const _ActionTile({
     required this.title,

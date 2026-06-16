@@ -23,12 +23,83 @@ type ManualReviewLoanApplicationPayload = {
   decisionReason?: string;
 };
 
+type AdminPaymentSettings = {
+  repaymentAccountHolder: string;
+  repaymentBankName: string;
+  repaymentAccountNumber: string;
+  updatedBy: string;
+  updatedAt: number | null;
+};
+
+function serializeTimestamp(value: unknown): number | null {
+  if (!value) return null;
+  if (value instanceof admin.firestore.Timestamp) {
+    return value.toMillis();
+  }
+  if (value instanceof Date) {
+    return value.getTime();
+  }
+  if (typeof value === "number") {
+    return value;
+  }
+  return null;
+}
+
+function serializeDocument(
+  id: string,
+  data: FirebaseFirestore.DocumentData,
+): Record<string, unknown> {
+  return {
+    id,
+    ...data,
+    createdAt: serializeTimestamp(data.createdAt),
+    updatedAt: serializeTimestamp(data.updatedAt),
+    approvedAt: serializeTimestamp(data.approvedAt),
+    nextDueDate: serializeTimestamp(data.nextDueDate),
+    contactsSyncedAt: serializeTimestamp(data.contactsSyncedAt),
+  };
+}
+
+async function requireAdminUidFromRequest(request: any): Promise<string> {
+  let reviewerUid = request.auth?.uid as string | undefined;
+  if (!reviewerUid) {
+    const idToken = String(request.data?.idToken ?? "").trim();
+    if (!idToken) {
+      throw new HttpsError("unauthenticated", "Ban can dang nhap.");
+    }
+
+    try {
+      const decoded = await admin.auth().verifyIdToken(idToken);
+      reviewerUid = decoded.uid;
+    } catch (_error) {
+      throw new HttpsError("unauthenticated", "Phien dang nhap khong hop le.");
+    }
+  }
+
+  const reviewerSnap = await db.collection("users").doc(reviewerUid).get();
+  const reviewerRole = String(reviewerSnap.get("role") ?? "").trim().toLowerCase();
+  if (reviewerRole !== "admin") {
+    throw new HttpsError(
+      "permission-denied",
+      "Chi tai khoan admin moi co quyen truy cap khu vuc nay.",
+    );
+  }
+
+  return reviewerUid;
+}
+
 const REQUIRED_DOCUMENT_TYPES = ["id_front", "id_back", "selfie"] as const;
 const INSURANCE_DOCUMENT_TYPES = ["insurance_proof"] as const;
 const FIXED_INTEREST_RATE = 0.08;
+const APPRAISAL_FEE_RATE = 0.04;
+const SERVICE_FEE_RATE = 0.04;
 const MAX_TERM_WEEKS = 6;
 const OVERDUE_PENALTY_FEE = 50000;
 const PENDING_APPLICATION_STATUSES = ["reviewing", "pending", "submitted"] as const;
+
+function adminPaymentSettingsRef() {
+  return db.collection("adminConfigs").doc("paymentSettings");
+}
 
 function assertNumber(value: unknown, fieldName: string): number {
   const parsed = Number(value);
@@ -51,13 +122,74 @@ function addDays(baseDate: Date, days: number): Date {
 }
 
 function calculateWeeklyLoanTerms(amount: number, termWeeks: number) {
+  const appraisalFee = Math.round(amount * APPRAISAL_FEE_RATE);
+  const serviceFee = Math.round(amount * SERVICE_FEE_RATE);
+  const netDisbursement = Math.round(amount - appraisalFee - serviceFee);
   const totalInterest = Math.round(amount * FIXED_INTEREST_RATE);
   const totalPayable = amount + totalInterest;
   const weeklyInstallment = Math.round(totalPayable / termWeeks);
   return {
+    appraisalFee,
+    serviceFee,
+    netDisbursement,
     totalInterest,
     totalPayable,
     weeklyInstallment,
+  };
+}
+
+async function fetchRepaymentProfileForAdmin(adminUid?: string) {
+  const configSnap = await adminPaymentSettingsRef().get();
+  if (configSnap.exists) {
+    const config = configSnap.data() ?? {};
+    return {
+      repaymentAccountHolder: String(config.repaymentAccountHolder ?? ""),
+      repaymentBankName: String(config.repaymentBankName ?? ""),
+      repaymentAccountNumber: String(config.repaymentAccountNumber ?? ""),
+    };
+  }
+
+  if (adminUid) {
+    const adminSnap = await db.collection("users").doc(adminUid).get();
+    const adminData = adminSnap.data() ?? {};
+    return {
+      repaymentAccountHolder: String(adminData.repaymentAccountHolder ?? ""),
+      repaymentBankName: String(adminData.repaymentBankName ?? ""),
+      repaymentAccountNumber: String(adminData.repaymentAccountNumber ?? ""),
+    };
+  }
+
+  const adminSnap = await db
+    .collection("users")
+    .where("role", "==", "admin")
+    .limit(1)
+    .get();
+  const adminData = adminSnap.empty ? {} : (adminSnap.docs[0].data() ?? {});
+  return {
+    repaymentAccountHolder: String(adminData.repaymentAccountHolder ?? ""),
+    repaymentBankName: String(adminData.repaymentBankName ?? ""),
+    repaymentAccountNumber: String(adminData.repaymentAccountNumber ?? ""),
+  };
+}
+
+async function fetchAdminPaymentSettingsRecord(adminUid: string): Promise<AdminPaymentSettings> {
+  const configSnap = await adminPaymentSettingsRef().get();
+  if (configSnap.exists) {
+    const config = configSnap.data() ?? {};
+    return {
+      repaymentAccountHolder: String(config.repaymentAccountHolder ?? ""),
+      repaymentBankName: String(config.repaymentBankName ?? ""),
+      repaymentAccountNumber: String(config.repaymentAccountNumber ?? ""),
+      updatedBy: String(config.updatedBy ?? ""),
+      updatedAt: serializeTimestamp(config.updatedAt),
+    };
+  }
+
+  const fallback = await fetchRepaymentProfileForAdmin(adminUid);
+  return {
+    ...fallback,
+    updatedBy: "",
+    updatedAt: null,
   };
 }
 
@@ -108,8 +240,13 @@ async function createApprovedLoanArtifacts(params: {
   applicationRef: admin.firestore.DocumentReference;
   application: FirebaseFirestore.DocumentData;
   now: admin.firestore.FieldValue;
+  repaymentProfile?: {
+    repaymentAccountHolder: string;
+    repaymentBankName: string;
+    repaymentAccountNumber: string;
+  };
 }) {
-  const {applicationRef, application, now} = params;
+  const {applicationRef, application, now, repaymentProfile} = params;
   const loanRef = db.collection("loans").doc();
   const loanId = loanRef.id;
   const amount = Number(application.amount ?? 0);
@@ -119,6 +256,10 @@ async function createApprovedLoanArtifacts(params: {
   const totalPayable = Number(application.totalPayable ?? 0);
   const interestRate = Number(application.interestRate ?? FIXED_INTEREST_RATE);
   const overduePenaltyFee = Number(application.overduePenaltyFee ?? OVERDUE_PENALTY_FEE);
+  const appraisalFee = Number(application.appraisalFee ?? Math.round(amount * APPRAISAL_FEE_RATE));
+  const serviceFee = Number(application.serviceFee ?? Math.round(amount * SERVICE_FEE_RATE));
+  const netDisbursement =
+    Number(application.netDisbursement ?? Math.round(amount - appraisalFee - serviceFee));
   const startDate = new Date();
   const batch = db.batch();
 
@@ -132,6 +273,16 @@ async function createApprovedLoanArtifacts(params: {
     uid: String(application.uid ?? ""),
     applicationId: applicationRef.id,
     principal: amount,
+    appraisalFee,
+    serviceFee,
+    netDisbursement,
+    borrowerPayoutAccountHolder: String(application.borrowerPayoutAccountHolder ?? ""),
+    borrowerPayoutBankName: String(application.borrowerPayoutBankName ?? ""),
+    borrowerPayoutAccountNumber: String(application.borrowerPayoutAccountNumber ?? ""),
+    repaymentAccountHolder: String(repaymentProfile?.repaymentAccountHolder ?? ""),
+    repaymentBankName: String(repaymentProfile?.repaymentBankName ?? ""),
+    repaymentAccountNumber: String(repaymentProfile?.repaymentAccountNumber ?? ""),
+    repaymentTransferNote: `TRA NO ${loanId}`,
     interestRate,
     termWeeks,
     weeklyInstallment,
@@ -213,6 +364,9 @@ export const submitLoanApplication = onCall(async (request: any) => {
   const user = userSnap.data() ?? {};
   const monthlyIncome = Number(user.monthlyIncome ?? 0);
   const insuranceNumber = String(user.insuranceNumber ?? "").trim();
+  const borrowerPayoutAccountHolder = String(user.payoutAccountHolder ?? "").trim();
+  const borrowerPayoutBankName = String(user.payoutBankName ?? "").trim();
+  const borrowerPayoutAccountNumber = String(user.payoutAccountNumber ?? "").trim();
   const profileComplete = Boolean(
     user.fullName && user.phone && user.address && user.nationalId,
   );
@@ -227,11 +381,10 @@ export const submitLoanApplication = onCall(async (request: any) => {
   const uploadedTypes = new Set(
     documentSnap.docs.map((doc: any) => String(doc.get("type"))),
   );
-  const hasInsuranceProof = INSURANCE_DOCUMENT_TYPES.some((type) => uploadedTypes.has(type));
-  if (!insuranceNumber && !hasInsuranceProof) {
+  if (!insuranceNumber) {
     throw new HttpsError(
       "failed-precondition",
-      "Ban can co so bao hiem hoac tai ho so bao hiem truoc khi nop ho so vay.",
+      "Ban can nhap so bao hiem truoc khi nop ho so vay.",
     );
   }
   const missingDocs = REQUIRED_DOCUMENT_TYPES.filter((type) => !uploadedTypes.has(type));
@@ -251,6 +404,9 @@ export const submitLoanApplication = onCall(async (request: any) => {
 
   const applicationRef = db.collection("loanApplications").doc();
   const {
+    appraisalFee,
+    serviceFee,
+    netDisbursement,
     totalInterest,
     totalPayable,
     weeklyInstallment,
@@ -292,9 +448,15 @@ export const submitLoanApplication = onCall(async (request: any) => {
   const applicationData = {
     uid,
     amount,
+    appraisalFee,
+    serviceFee,
+    netDisbursement,
     termWeeks,
     purpose,
     monthlyIncome,
+    borrowerPayoutAccountHolder,
+    borrowerPayoutBankName,
+    borrowerPayoutAccountNumber,
     weeklyInstallment,
     interestRate: FIXED_INTEREST_RATE,
     totalInterest,
@@ -313,6 +475,7 @@ export const submitLoanApplication = onCall(async (request: any) => {
   let loanId: string | null = null;
 
   if (status === "approved") {
+    const repaymentProfile = await fetchRepaymentProfileForAdmin();
     const loanRef = db.collection("loans").doc();
     loanId = loanRef.id;
     const startDate = new Date();
@@ -326,6 +489,16 @@ export const submitLoanApplication = onCall(async (request: any) => {
       uid,
       applicationId: applicationRef.id,
       principal: amount,
+      appraisalFee,
+      serviceFee,
+      netDisbursement,
+      borrowerPayoutAccountHolder,
+      borrowerPayoutBankName,
+      borrowerPayoutAccountNumber,
+      repaymentAccountHolder: repaymentProfile.repaymentAccountHolder,
+      repaymentBankName: repaymentProfile.repaymentBankName,
+      repaymentAccountNumber: repaymentProfile.repaymentAccountNumber,
+      repaymentTransferNote: `TRA NO ${loanId}`,
       interestRate: FIXED_INTEREST_RATE,
       termWeeks,
       weeklyInstallment,
@@ -464,31 +637,100 @@ export const markRepaymentPaidMock = onCall(async (request: any) => {
   };
 });
 
-export const reviewLoanApplicationManual = onCall(async (request: any) => {
-  const payload = (request.data ?? {}) as Partial<ManualReviewLoanApplicationPayload>;
-  let reviewerUid = request.auth?.uid as string | undefined;
-  if (!reviewerUid) {
-    const idToken = String(request.data?.idToken ?? "").trim();
-    if (!idToken) {
-      throw new HttpsError("unauthenticated", "Ban can dang nhap.");
-    }
+export const fetchAdminDashboard = onCall(async (request: any) => {
+  await requireAdminUidFromRequest(request);
 
-    try {
-      const decoded = await admin.auth().verifyIdToken(idToken);
-      reviewerUid = decoded.uid;
-    } catch (_error) {
-      throw new HttpsError("unauthenticated", "Phien dang nhap khong hop le.");
-    }
+  const [applicationsSnap, loansSnap, usersSnap] = await Promise.all([
+    db.collection("loanApplications").orderBy("createdAt", "desc").limit(200).get(),
+    db.collection("loans").orderBy("createdAt", "desc").limit(200).get(),
+    db.collection("users").where("role", "==", "admin").limit(20).get(),
+  ]);
+
+  const applications = applicationsSnap.docs.map((doc) =>
+    serializeDocument(doc.id, doc.data()),
+  );
+  const loans = loansSnap.docs.map((doc) => serializeDocument(doc.id, doc.data()));
+
+  const neededUids = new Set<string>();
+  for (const application of applications) {
+    const uid = String(application.uid ?? "").trim();
+    if (uid) neededUids.add(uid);
+  }
+  for (const loan of loans) {
+    const uid = String(loan.uid ?? "").trim();
+    if (uid) neededUids.add(uid);
   }
 
-  const reviewerSnap = await db.collection("users").doc(reviewerUid).get();
-  const reviewerRole = String(reviewerSnap.get("role") ?? "").trim().toLowerCase();
-  if (reviewerRole !== "admin") {
+  const userDocs = await Promise.all(
+    [...neededUids].map((uid) => db.collection("users").doc(uid).get()),
+  );
+
+  const userSummaries: Record<string, Record<string, unknown>> = {};
+  for (const userDoc of userDocs) {
+    if (!userDoc.exists) continue;
+    const data = userDoc.data() ?? {};
+    userSummaries[userDoc.id] = {
+      uid: userDoc.id,
+      fullName: String(data.fullName ?? ""),
+      email: String(data.email ?? ""),
+      phone: String(data.phone ?? ""),
+      role: String(data.role ?? ""),
+      kycStatus: String(data.kycStatus ?? ""),
+    };
+  }
+
+  return {
+    ok: true,
+    applications,
+    loans,
+    userSummaries,
+    adminCount: usersSnap.size,
+  };
+});
+
+export const fetchAdminPaymentSettings = onCall(async (request: any) => {
+  const adminUid = await requireAdminUidFromRequest(request);
+  return fetchAdminPaymentSettingsRecord(adminUid);
+});
+
+export const saveAdminPaymentSettings = onCall(async (request: any) => {
+  const adminUid = await requireAdminUidFromRequest(request);
+  const repaymentAccountHolder = String(request.data?.repaymentAccountHolder ?? "").trim();
+  const repaymentBankName = String(request.data?.repaymentBankName ?? "").trim();
+  const repaymentAccountNumber = String(request.data?.repaymentAccountNumber ?? "").trim();
+
+  if (!repaymentAccountHolder || !repaymentBankName || !repaymentAccountNumber) {
     throw new HttpsError(
-      "permission-denied",
-      "Chi tai khoan admin moi co quyen duyet ho so vay.",
+      "invalid-argument",
+      "Thong tin chu tai khoan, ngan hang va so tai khoan la bat buoc.",
     );
   }
+
+  const adminSnap = await db.collection("users").doc(adminUid).get();
+  const adminData = adminSnap.data() ?? {};
+  const updatedBy = String(
+    adminData.fullName ?? adminData.phone ?? adminData.email ?? adminUid,
+  ).trim();
+  const now = admin.firestore.FieldValue.serverTimestamp();
+
+  await adminPaymentSettingsRef().set(
+    {
+      repaymentAccountHolder,
+      repaymentBankName,
+      repaymentAccountNumber,
+      updatedBy,
+      updatedByUid: adminUid,
+      updatedAt: now,
+    },
+    {merge: true},
+  );
+
+  return fetchAdminPaymentSettingsRecord(adminUid);
+});
+
+export const reviewLoanApplicationManual = onCall(async (request: any) => {
+  const payload = (request.data ?? {}) as Partial<ManualReviewLoanApplicationPayload>;
+  const reviewerUid = await requireAdminUidFromRequest(request);
 
   const applicationId = String(payload.applicationId ?? "").trim();
   const decision = normalizeManualDecision(payload.decision);
@@ -547,6 +789,7 @@ export const reviewLoanApplicationManual = onCall(async (request: any) => {
       applicationRef,
       application,
       now,
+      repaymentProfile: await fetchRepaymentProfileForAdmin(reviewerUid),
     });
 
     await db.collection("users").doc(applicantUid).set(

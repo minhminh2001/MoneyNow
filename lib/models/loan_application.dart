@@ -5,6 +5,12 @@ class LoanApplication {
     required this.id,
     required this.uid,
     required this.amount,
+    required this.appraisalFee,
+    required this.serviceFee,
+    required this.netDisbursement,
+    required this.borrowerPayoutAccountHolder,
+    required this.borrowerPayoutBankName,
+    required this.borrowerPayoutAccountNumber,
     required this.termWeeks,
     required this.monthlyIncome,
     required this.weeklyInstallment,
@@ -22,6 +28,12 @@ class LoanApplication {
   final String id;
   final String uid;
   final double amount;
+  final double appraisalFee;
+  final double serviceFee;
+  final double netDisbursement;
+  final String borrowerPayoutAccountHolder;
+  final String borrowerPayoutBankName;
+  final String borrowerPayoutAccountNumber;
   final int termWeeks;
   final double monthlyIncome;
   final double weeklyInstallment;
@@ -41,6 +53,20 @@ class LoanApplication {
       id: id,
       uid: readString(map['uid']),
       amount: readDouble(map['amount']),
+      appraisalFee: readDouble(map['appraisalFee']),
+      serviceFee: readDouble(map['serviceFee']),
+      netDisbursement: () {
+        final value = readDouble(map['netDisbursement']);
+        if (value > 0) return value;
+        return readDouble(map['amount']) -
+            readDouble(map['appraisalFee']) -
+            readDouble(map['serviceFee']);
+      }(),
+      borrowerPayoutAccountHolder:
+          readString(map['borrowerPayoutAccountHolder']),
+      borrowerPayoutBankName: readString(map['borrowerPayoutBankName']),
+      borrowerPayoutAccountNumber:
+          readString(map['borrowerPayoutAccountNumber']),
       termWeeks: () {
         final value = readInt(map['termWeeks']);
         if (value > 0) return value;

@@ -14,6 +14,7 @@ import '../models/loan_application.dart';
 import '../models/loan_draft.dart';
 import '../models/repayment.dart';
 import '../models/uploaded_document.dart';
+import '../repositories/admin_repository.dart';
 import '../repositories/auth_repository.dart';
 import '../repositories/loan_repository.dart';
 import '../repositories/profile_repository.dart';
@@ -61,6 +62,13 @@ final loanRepositoryProvider = Provider<LoanRepository>((ref) {
   );
 });
 
+final adminRepositoryProvider = Provider<AdminRepository>((ref) {
+  return AdminRepository(
+    functions: ref.watch(functionsProvider),
+    auth: ref.watch(firebaseAuthProvider),
+  );
+});
+
 final authStateChangesProvider = StreamProvider<User?>((ref) {
   return ref.watch(authRepositoryProvider).authStateChanges();
 });
@@ -80,7 +88,10 @@ final userProfileProvider = StreamProvider.autoDispose<AppUser?>((ref) {
   }
   return ref
       .watch(profileRepositoryProvider)
-      .streamProfile(uid: user.uid, email: user.email ?? '')
+      .streamProfile(
+        uid: user.uid,
+        email: user.email ?? user.phoneNumber ?? '',
+      )
       .map((profile) => profile);
 });
 
@@ -89,18 +100,18 @@ final currentUserIsAdminProvider = Provider<bool>((ref) {
   return profileAsync.when(
     data: (profile) => profile?.isAdmin == true,
     loading: () => false,
-    error: (_, _) => false,
+    error: (_, __) => false,
   );
 });
 
 final userDocumentsProvider =
     StreamProvider.autoDispose<List<UploadedDocument>>((ref) {
-      final uid = ref.watch(currentUserIdProvider);
-      if (uid == null) {
-        return Stream<List<UploadedDocument>>.value(const []);
-      }
-      return ref.watch(profileRepositoryProvider).streamDocuments(uid);
-    });
+  final uid = ref.watch(currentUserIdProvider);
+  if (uid == null) {
+    return Stream<List<UploadedDocument>>.value(const []);
+  }
+  return ref.watch(profileRepositoryProvider).streamDocuments(uid);
+});
 
 final loanDraftProvider = StreamProvider.autoDispose<LoanDraft>((ref) {
   final uid = ref.watch(currentUserIdProvider);
@@ -112,12 +123,12 @@ final loanDraftProvider = StreamProvider.autoDispose<LoanDraft>((ref) {
 
 final loanApplicationsProvider =
     StreamProvider.autoDispose<List<LoanApplication>>((ref) {
-      final uid = ref.watch(currentUserIdProvider);
-      if (uid == null) {
-        return Stream<List<LoanApplication>>.value(const []);
-      }
-      return ref.watch(loanRepositoryProvider).streamApplications(uid);
-    });
+  final uid = ref.watch(currentUserIdProvider);
+  if (uid == null) {
+    return Stream<List<LoanApplication>>.value(const []);
+  }
+  return ref.watch(loanRepositoryProvider).streamApplications(uid);
+});
 
 final loansProvider = StreamProvider.autoDispose<List<Loan>>((ref) {
   final uid = ref.watch(currentUserIdProvider);
@@ -127,10 +138,10 @@ final loansProvider = StreamProvider.autoDispose<List<Loan>>((ref) {
   return ref.watch(loanRepositoryProvider).streamLoans(uid);
 });
 
-final repaymentScheduleProvider = StreamProvider.autoDispose
-    .family<List<Repayment>, String>((ref, loanId) {
-      return ref.watch(loanRepositoryProvider).streamRepaymentSchedule(loanId);
-    });
+final repaymentScheduleProvider =
+    StreamProvider.autoDispose.family<List<Repayment>, String>((ref, loanId) {
+  return ref.watch(loanRepositoryProvider).streamRepaymentSchedule(loanId);
+});
 
 // ─── Notification Providers ───────────────────────────────────────────────────
 
@@ -168,8 +179,8 @@ class ReadNotificationIdsNotifier extends Notifier<Set<String>> {
 
 final readNotificationIdsProvider =
     NotifierProvider<ReadNotificationIdsNotifier, Set<String>>(
-      ReadNotificationIdsNotifier.new,
-    );
+  ReadNotificationIdsNotifier.new,
+);
 
 /// Danh sách thông báo tổng hợp, sinh client-side từ dữ liệu Firestore sẵn có.
 /// Không cần collection mới — dữ liệu đến từ loans, repaymentSchedules,
@@ -247,6 +258,7 @@ final notificationsProvider = Provider.autoDispose<List<AppNotification>>((
             routeId: app.id,
           ),
         );
+        break;
       case 'rejected':
         notifications.add(
           AppNotification(
@@ -260,6 +272,7 @@ final notificationsProvider = Provider.autoDispose<List<AppNotification>>((
             routeId: app.id,
           ),
         );
+        break;
       case 'reviewing':
         notifications.add(
           AppNotification(
@@ -272,6 +285,7 @@ final notificationsProvider = Provider.autoDispose<List<AppNotification>>((
             routeId: app.id,
           ),
         );
+        break;
     }
   }
 

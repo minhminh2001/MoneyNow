@@ -1,0 +1,308 @@
+Warning: Building for device with codesigning disabled. You will have to manually codesign before deploying to device.
+Building com.phanhoang.moneynow for device (ios)...
+Running Xcode build...                                          
+Xcode build done.                                           15.9s
+Failed to build iOS app
+Error output from Xcode build:
+↳
+    ** BUILD FAILED **
+
+
+Xcode's output:
+↳
+    Writing result bundle at path:
+    	/var/folders/1v/06vz9_t564xf_5hzgdf87phw0000gn/T/flutter_tools.NNQKN7/flutter_ios_build_temp_dir8PKULB/temporary_xcresult_bundle
+
+    libtool: warning: 'annotations.nanopb.o' has no symbols
+    libtool: warning: 'status_win.o' has no symbols
+    libtool: warning: 'string_win.o' has no symbols
+    libtool: warning: 'dummy.o' has no symbols
+    /Users/noname/Documents/loan_app_firebase_mvp/loan_app_firebase_mvp/ios/Pods/FirebaseFirestore/Firestore/Swift/Source/Codable/VectorValue+Codable.swift:62:42: warning: 'retroactive' attribute does not apply; 'VectorValue' is declared in this module; this is an error in the Swift 6 language mode
+    extension FirebaseFirestore.VectorValue: @retroactive Codable {}
+                                             ^~~~~~~~~~~~~
+
+    /Users/noname/Documents/loan_app_firebase_mvp/loan_app_firebase_mvp/ios/Pods/FirebaseFirestore/Firestore/Swift/Source/Codable/VectorValue+Codable.swift:62:42: warning: 'retroactive' attribute does not apply; 'VectorValue' is declared in this module; this is an error in the Swift 6 language mode
+    extension FirebaseFirestore.VectorValue: @retroactive Codable {}
+                                             ^~~~~~~~~~~~~
+
+    /Users/noname/Documents/loan_app_firebase_mvp/loan_app_firebase_mvp/ios/Pods/FirebaseFirestore/Firestore/Swift/Source/Codable/VectorValue+Codable.swift:62:42: warning: 'retroactive' attribute does not apply; 'VectorValue' is declared in this module; this is an error in the Swift 6 language mode
+    extension FirebaseFirestore.VectorValue: @retroactive Codable {}
+                                             ^~~~~~~~~~~~~
+
+    /Users/noname/Documents/loan_app_firebase_mvp/loan_app_firebase_mvp/ios/Pods/FirebaseFirestore/Firestore/Swift/Source/Codable/VectorValue+Codable.swift:62:42: warning: 'retroactive' attribute does not apply; 'VectorValue' is declared in this module; this is an error in the Swift 6 language mode
+    extension FirebaseFirestore.VectorValue: @retroactive Codable {}
+                                             ^~~~~~~~~~~~~
+
+    libtool: warning: 'dummy.o' has no symbols
+    /Users/noname/.pub-cache/hosted/pub.dev/firebase_core-4.6.0/ios/firebase_core/Sources/firebase_core/FLTFirebaseCorePlugin.m:92:35: warning: incompatible pointer types assigning to 'NSString * _Nullable' from 'NSNull * _Nonnull' [-Wincompatible-pointer-types]
+       92 |   pigeonOptions.deepLinkURLScheme = [NSNull null];
+          |                                   ^ ~~~~~~~~~~~~~
+    1 warning generated.
+    libtool: warning: 'dummy.o' has no symbols
+    /Users/noname/.pub-cache/hosted/pub.dev/firebase_auth-6.3.0/ios/firebase_auth/Sources/firebase_auth/FLTFirebaseAuthPlugin.m:130:72: warning: sending 'FLTFirebaseAuthPlugin *__strong' to parameter of incompatible type 'id<FLTFirebasePlugin> _Nonnull'
+      130 |     [[FLTFirebasePluginRegistry sharedInstance] registerFirebasePlugin:self];
+          |                                                                        ^~~~
+    In file included from /Users/noname/.pub-cache/hosted/pub.dev/firebase_auth-6.3.0/ios/firebase_auth/Sources/firebase_auth/FLTFirebaseAuthPlugin.m:9:
+    /Users/noname/Documents/loan_app_firebase_mvp/loan_app_firebase_mvp/ios/Pods/Headers/Private/firebase_core/FLTFirebasePluginRegistry.h:23:64: note: passing argument to parameter 'firebasePlugin' here
+       23 | - (void)registerFirebasePlugin:(id<FLTFirebasePlugin> _Nonnull)firebasePlugin;
+          |                                                                ^
+    /Users/noname/.pub-cache/hosted/pub.dev/firebase_auth-6.3.0/ios/firebase_auth/Sources/firebase_auth/FLTFirebaseAuthPlugin.m:431:14: warning: unused variable 'capturedCompletion' [-Wunused-variable]
+      431 |       void (^capturedCompletion)(PigeonUserCredential *_Nullable, FlutterError *_Nullable) =
+          |              ^~~~~~~~~~~~~~~~~~
+    /Users/noname/.pub-cache/hosted/pub.dev/firebase_auth-6.3.0/ios/firebase_auth/Sources/firebase_auth/FLTFirebaseAuthPlugin.m:442:14: warning: unused variable 'capturedCompletion' [-Wunused-variable]
+      442 |       void (^capturedCompletion)(PigeonUserCredential *_Nullable, FlutterError *_Nullable) =
+          |              ^~~~~~~~~~~~~~~~~~
+    /Users/noname/.pub-cache/hosted/pub.dev/firebase_auth-6.3.0/ios/firebase_auth/Sources/firebase_auth/FLTFirebaseAuthPlugin.m:453:14: warning: unused variable 'capturedCompletion' [-Wunused-variable]
+      453 |       void (^capturedCompletion)(PigeonUserCredential *_Nullable, FlutterError *_Nullable) =
+          |              ^~~~~~~~~~~~~~~~~~
+    /Users/noname/.pub-cache/hosted/pub.dev/firebase_auth-6.3.0/ios/firebase_auth/Sources/firebase_auth/FLTFirebaseAuthPlugin.m:882:45: warning: 'keyWindow' is deprecated: first deprecated in iOS 13.0 - Should not be used for applications that support multiple scenes as it returns a key window across all connected scenes [-Wdeprecated-declarations]
+      882 |   return [[UIApplication sharedApplication] keyWindow];
+          |                                             ^
+    In module 'UIKit' imported from /Users/noname/Documents/loan_app_firebase_mvp/loan_app_firebase_mvp/ios/Pods/Target Support Files/firebase_auth/firebase_auth-prefix.pch:2:
+    /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.4.sdk/System/Library/Frameworks/UIKit.framework/Headers/UIApplication.h:108:51: note: property 'keyWindow' is declared deprecated here
+      108 | @property(nullable, nonatomic,readonly) UIWindow *keyWindow API_DEPRECATED("Should not be used for applications that support multiple scenes as it returns a key window across all connected scenes", ios(2.0, 13.0)) API_UNAVAILABLE(visionos, watchos);
+          |                                                   ^
+    /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.4.sdk/System/Library/Frameworks/UIKit.framework/Headers/UIApplication.h:108:51: note: 'keyWindow' has been explicitly marked deprecated here
+    /Users/noname/.pub-cache/hosted/pub.dev/firebase_auth-6.3.0/ios/firebase_auth/Sources/firebase_auth/FLTFirebaseAuthPlugin.m:1312:9: warning: 'fetchSignInMethodsForEmail:completion:' is deprecated: `fetchSignInMethods` is deprecated and will be removed in a future release. This method returns an empty list when Email Enumeration Protection is enabled. [-Wdeprecated-declarations]
+     1312 |   [auth fetchSignInMethodsForEmail:email
+          |         ^
+    In module 'FirebaseAuth' imported from /Users/noname/.pub-cache/hosted/pub.dev/firebase_auth-6.3.0/ios/firebase_auth/Sources/firebase_auth/FLTFirebaseAuthPlugin.m:5:
+    /Users/noname/Documents/loan_app_firebase_mvp/loan_app_firebase_mvp/build/ios/Debug-iphoneos/FirebaseAuth/Swift Compatibility Header/FirebaseAuth-Swift.h:566:159: note: 'fetchSignInMethodsForEmail:completion:' has been explicitly marked deprecated here
+      566 | - (void)fetchSignInMethodsForEmail:(NSString * _Nonnull)email completion:(void (^ _Nullable)(NSArray<NSString *> * _Nullable, NSError * _Nullable))completion SWIFT_DEPRECATED_MSG("`fetchSignInMethods` is deprecated and will be removed in a future release. This method returns an empty list when Email Enumeration Protection is enabled.");
+          |                                                                                                                                                               ^
+    /Users/noname/Documents/loan_app_firebase_mvp/loan_app_firebase_mvp/build/ios/Debug-iphoneos/FirebaseAuth/Swift Compatibility Header/FirebaseAuth-Swift.h:243:51: note: expanded from macro 'SWIFT_DEPRECATED_MSG'
+      243 | # define SWIFT_DEPRECATED_MSG(...) __attribute__((deprecated(__VA_ARGS__)))
+          |                                                   ^
+    /Users/noname/.pub-cache/hosted/pub.dev/firebase_auth-6.3.0/ios/firebase_auth/Sources/firebase_auth/FLTFirebaseAuthPlugin.m:2120:16: warning: 'updateEmail:completion:' is deprecated: `updateEmail` is deprecated and will be removed in a future release. Use sendEmailVerification(beforeUpdatingEmail:) instead. [-Wdeprecated-declarations]
+     2120 |   [currentUser updateEmail:newEmail
+          |                ^
+    In module 'FirebaseAuth' imported from /Users/noname/.pub-cache/hosted/pub.dev/firebase_auth-6.3.0/ios/firebase_auth/Sources/firebase_auth/FLTFirebaseAuthPlugin.m:5:
+    /Users/noname/Documents/loan_app_firebase_mvp/loan_app_firebase_mvp/build/ios/Debug-iphoneos/FirebaseAuth/Swift Compatibility Header/FirebaseAuth-Swift.h:2140:111: note: 'updateEmail:completion:' has been explicitly marked deprecated here
+     2140 | - (void)updateEmail:(NSString * _Nonnull)email completion:(void (^ _Nullable)(NSError * _Nullable))completion SWIFT_DEPRECATED_MSG("`updateEmail` is deprecated and will be removed in a future release. Use sendEmailVerification(beforeUpdatingEmail:) instead.");
+          |                                                                                                               ^
+    /Users/noname/Documents/loan_app_firebase_mvp/loan_app_firebase_mvp/build/ios/Debug-iphoneos/FirebaseAuth/Swift Compatibility Header/FirebaseAuth-Swift.h:243:51: note: expanded from macro 'SWIFT_DEPRECATED_MSG'
+      243 | # define SWIFT_DEPRECATED_MSG(...) __attribute__((deprecated(__VA_ARGS__)))
+          |                                                   ^
+    7 warnings generated.
+    /Users/noname/.pub-cache/hosted/pub.dev/cloud_firestore-6.2.0/ios/cloud_firestore/Sources/cloud_firestore/FLTFirebaseFirestorePlugin.m:571:14: warning: 'setIndexConfigurationFromJSON:completion:' is deprecated: Instead of creating cache indexes manually, consider using `PersistentCacheIndexManager.enableIndexAutoCreation()` to let the SDK decide whether to create cache indexes for queries running locally. [-Wdeprecated-declarations]
+      571 |   [firestore setIndexConfigurationFromJSON:indexConfiguration
+          |              ^
+    In module 'FirebaseFirestore' imported from /Users/noname/.pub-cache/hosted/pub.dev/cloud_firestore-6.2.0/ios/cloud_firestore/Sources/cloud_firestore/FLTFirebaseFirestorePlugin.m:5:
+    /Users/noname/Documents/loan_app_firebase_mvp/loan_app_firebase_mvp/ios/Pods/Headers/Private/FirebaseFirestoreInternal/FIRFirestore.h:134:57: note: 'setIndexConfigurationFromJSON:completion:' has been explicitly marked deprecated here
+      134 |     NS_SWIFT_NAME(setIndexConfiguration(_:completion:)) DEPRECATED_MSG_ATTRIBUTE(
+          |                                                         ^
+    In module '_DarwinFoundation1' imported from /Users/noname/Documents/loan_app_firebase_mvp/loan_app_firebase_mvp/ios/Pods/Headers/Private/firebase_core/FLTFirebasePlugin.h:12:
+    /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk/usr/include/AvailabilityMacros.h:152:64: note: expanded from macro 'DEPRECATED_MSG_ATTRIBUTE'
+      152 |             #define DEPRECATED_MSG_ATTRIBUTE(s) __attribute__((deprecated(s)))
+          |                                                                ^
+    1 warning generated.
+    /Users/noname/.pub-cache/hosted/pub.dev/cloud_functions-6.1.0/ios/cloud_functions/Sources/cloud_functions/FirebaseFunctionsPlugin.swift:18:1: warning: extension declares a conformance of imported type 'FlutterError' to imported protocol 'Error'; this will not behave correctly if the owners of 'Flutter' introduce this conformance in the future
+    extension FlutterError: Error {}
+    ^
+    /Users/noname/.pub-cache/hosted/pub.dev/cloud_functions-6.1.0/ios/cloud_functions/Sources/cloud_functions/FirebaseFunctionsPlugin.swift:18:1: note: add '@retroactive' to silence this warning
+    extension FlutterError: Error {}
+    ^                       ~~~~~
+                            @retroactive Error
+    /Users/noname/.pub-cache/hosted/pub.dev/cloud_functions-6.1.0/ios/cloud_functions/Sources/cloud_functions/FirebaseFunctionsPlugin.swift:18:1: warning: extension declares a conformance of imported type 'FlutterError' to imported protocol 'Error'; this will not behave correctly if the owners of 'Flutter' introduce this conformance in the future
+    extension FlutterError: Error {}
+    ^
+    /Users/noname/.pub-cache/hosted/pub.dev/cloud_functions-6.1.0/ios/cloud_functions/Sources/cloud_functions/FirebaseFunctionsPlugin.swift:18:1: note: add '@retroactive' to silence this warning
+    extension FlutterError: Error {}
+    ^                       ~~~~~
+                            @retroactive Error
+    /Users/noname/.pub-cache/hosted/pub.dev/cloud_functions-6.1.0/ios/cloud_functions/Sources/cloud_functions/FirebaseFunctionsPlugin.swift:25:34: warning: expression implicitly coerced from '[String : Any?]' to '[String : Any]'
+        httpsFunctionCall(arguments: arguments) { result, error in
+                                     ^~~~~~~~~
+    /Users/noname/.pub-cache/hosted/pub.dev/cloud_functions-6.1.0/ios/cloud_functions/Sources/cloud_functions/FirebaseFunctionsPlugin.swift:25:34: note: explicitly cast to '[String : Any]' with 'as [String : Any]' to silence this warning
+        httpsFunctionCall(arguments: arguments) { result, error in
+                                     ^~~~~~~~~
+                                               as [String : Any]
+    /Users/noname/.pub-cache/hosted/pub.dev/firebase_storage-13.2.0/ios/firebase_storage/Sources/firebase_storage/FLTFirebaseStoragePlugin.swift:20:1: warning: extension declares a conformance of imported type 'FlutterError' to imported protocol 'Error'; this will not behave correctly if the owners of 'Flutter' introduce this conformance in the future
+    extension FlutterError: Error {}
+    ^
+    /Users/noname/.pub-cache/hosted/pub.dev/firebase_storage-13.2.0/ios/firebase_storage/Sources/firebase_storage/FLTFirebaseStoragePlugin.swift:20:1: note: add '@retroactive' to silence this warning
+    extension FlutterError: Error {}
+    ^                       ~~~~~
+                            @retroactive Error
+    /Users/noname/.pub-cache/hosted/pub.dev/firebase_storage-13.2.0/ios/firebase_storage/Sources/firebase_storage/FLTFirebaseStoragePlugin.swift:20:1: warning: extension declares a conformance of imported type 'FlutterError' to imported protocol 'Error'; this will not behave correctly if the owners of 'Flutter' introduce this conformance in the future
+    extension FlutterError: Error {}
+    ^
+    /Users/noname/.pub-cache/hosted/pub.dev/firebase_storage-13.2.0/ios/firebase_storage/Sources/firebase_storage/FLTFirebaseStoragePlugin.swift:20:1: note: add '@retroactive' to silence this warning
+    extension FlutterError: Error {}
+    ^                       ~~~~~
+                            @retroactive Error
+    /Users/noname/.pub-cache/hosted/pub.dev/firebase_storage-13.2.0/ios/firebase_storage/Sources/firebase_storage/FLTFirebaseStoragePlugin.swift:374:7: warning: switch must be exhaustive
+          switch code {
+          ^
+    /Users/noname/.pub-cache/hosted/pub.dev/firebase_storage-13.2.0/ios/firebase_storage/Sources/firebase_storage/FLTFirebaseStoragePlugin.swift:374:7: note: add missing case: '.unknown'
+          switch code {
+          ^
+    /Users/noname/.pub-cache/hosted/pub.dev/firebase_storage-13.2.0/ios/firebase_storage/Sources/firebase_storage/FLTFirebaseStoragePlugin.swift:374:7: note: add missing case: '.nonMatchingChecksum'
+          switch code {
+          ^
+    /Users/noname/.pub-cache/hosted/pub.dev/firebase_storage-13.2.0/ios/firebase_storage/Sources/firebase_storage/FLTFirebaseStoragePlugin.swift:374:7: note: add missing case: '.invalidArgument'
+          switch code {
+          ^
+    /Users/noname/.pub-cache/hosted/pub.dev/firebase_storage-13.2.0/ios/firebase_storage/Sources/firebase_storage/FLTFirebaseStoragePlugin.swift:374:7: note: add missing case: '.bucketMismatch'
+          switch code {
+          ^
+    /Users/noname/.pub-cache/hosted/pub.dev/firebase_storage-13.2.0/ios/firebase_storage/Sources/firebase_storage/FLTFirebaseStoragePlugin.swift:374:7: note: add missing case: '.internalError'
+          switch code {
+          ^
+    /Users/noname/.pub-cache/hosted/pub.dev/firebase_storage-13.2.0/ios/firebase_storage/Sources/firebase_storage/FLTFirebaseStoragePlugin.swift:374:7: note: add missing case: '.pathError'
+          switch code {
+          ^
+    /Users/noname/.pub-cache/hosted/pub.dev/firebase_storage-13.2.0/ios/firebase_storage/Sources/firebase_storage/FLTFirebaseStoragePlugin.swift:374:7: note: add missing cases
+          switch code {
+          ^
+    /Users/noname/.pub-cache/hosted/pub.dev/firebase_storage-13.2.0/ios/firebase_storage/Sources/firebase_storage/TaskStateChannelStreamHandler.swift:109:7: warning: switch must be exhaustive
+          switch storageCode {
+          ^
+    /Users/noname/.pub-cache/hosted/pub.dev/firebase_storage-13.2.0/ios/firebase_storage/Sources/firebase_storage/TaskStateChannelStreamHandler.swift:109:7: note: add missing case: '.unknown'
+          switch storageCode {
+          ^
+    /Users/noname/.pub-cache/hosted/pub.dev/firebase_storage-13.2.0/ios/firebase_storage/Sources/firebase_storage/TaskStateChannelStreamHandler.swift:109:7: note: add missing case: '.nonMatchingChecksum'
+          switch storageCode {
+          ^
+    /Users/noname/.pub-cache/hosted/pub.dev/firebase_storage-13.2.0/ios/firebase_storage/Sources/firebase_storage/TaskStateChannelStreamHandler.swift:109:7: note: add missing case: '.invalidArgument'
+          switch storageCode {
+          ^
+    /Users/noname/.pub-cache/hosted/pub.dev/firebase_storage-13.2.0/ios/firebase_storage/Sources/firebase_storage/TaskStateChannelStreamHandler.swift:109:7: note: add missing case: '.bucketMismatch'
+          switch storageCode {
+          ^
+    /Users/noname/.pub-cache/hosted/pub.dev/firebase_storage-13.2.0/ios/firebase_storage/Sources/firebase_storage/TaskStateChannelStreamHandler.swift:109:7: note: add missing case: '.internalError'
+          switch storageCode {
+          ^
+    /Users/noname/.pub-cache/hosted/pub.dev/firebase_storage-13.2.0/ios/firebase_storage/Sources/firebase_storage/TaskStateChannelStreamHandler.swift:109:7: note: add missing case: '.pathError'
+          switch storageCode {
+          ^
+    /Users/noname/.pub-cache/hosted/pub.dev/firebase_storage-13.2.0/ios/firebase_storage/Sources/firebase_storage/TaskStateChannelStreamHandler.swift:109:7: note: add missing cases
+          switch storageCode {
+          ^
+    lib/screens/charts/loan_charts_screen.dart:181:33: Error: The method '_applicationStatusKey' isn't defined for the type '_AdminKpiGrid'.
+     - '_AdminKpiGrid' is from 'package:MoneyNow/screens/charts/loan_charts_screen.dart' ('lib/screens/charts/loan_charts_screen.dart').
+    Try correcting the name to the name of an existing method, or defining a method named '_applicationStatusKey'.
+            .where((application) => _applicationStatusKey(application.status) == 'reviewing')
+                                    ^^^^^^^^^^^^^^^^^^^^^
+    lib/screens/charts/loan_charts_screen.dart:184:33: Error: The method '_applicationStatusKey' isn't defined for the type '_AdminKpiGrid'.
+     - '_AdminKpiGrid' is from 'package:MoneyNow/screens/charts/loan_charts_screen.dart' ('lib/screens/charts/loan_charts_screen.dart').
+    Try correcting the name to the name of an existing method, or defining a method named '_applicationStatusKey'.
+            .where((application) => _applicationStatusKey(application.status) == 'approved')
+                                    ^^^^^^^^^^^^^^^^^^^^^
+    lib/screens/charts/loan_charts_screen.dart:187:26: Error: The method '_loanStatusKey' isn't defined for the type '_AdminKpiGrid'.
+     - '_AdminKpiGrid' is from 'package:MoneyNow/screens/charts/loan_charts_screen.dart' ('lib/screens/charts/loan_charts_screen.dart').
+    Try correcting the name to the name of an existing method, or defining a method named '_loanStatusKey'.
+            .where((loan) => _loanStatusKey(loan.status) == 'active')
+                             ^^^^^^^^^^^^^^
+    lib/screens/charts/loan_charts_screen.dart:190:26: Error: The method '_loanStatusKey' isn't defined for the type '_AdminKpiGrid'.
+     - '_AdminKpiGrid' is from 'package:MoneyNow/screens/charts/loan_charts_screen.dart' ('lib/screens/charts/loan_charts_screen.dart').
+    Try correcting the name to the name of an existing method, or defining a method named '_loanStatusKey'.
+            .where((loan) => _loanStatusKey(loan.status) == 'active')
+                             ^^^^^^^^^^^^^^
+    lib/screens/charts/loan_charts_screen.dart:696:22: Error: '_StatusBucket' isn't a type.
+        final buckets = <_StatusBucket>[
+                         ^^^^^^^^^^^^^
+    lib/screens/charts/loan_charts_screen.dart:702:37: Error: The method '_applicationStatusKey' isn't defined for the type '_ApplicationStatusChart'.
+     - '_ApplicationStatusChart' is from 'package:MoneyNow/screens/charts/loan_charts_screen.dart' ('lib/screens/charts/loan_charts_screen.dart').
+    Try correcting the name to the name of an existing method, or defining a method named '_applicationStatusKey'.
+                .where((application) => _applicationStatusKey(application.status) == 'reviewing')
+                                        ^^^^^^^^^^^^^^^^^^^^^
+    lib/screens/charts/loan_charts_screen.dart:697:7: Error: The method '_StatusBucket' isn't defined for the type '_ApplicationStatusChart'.
+     - '_ApplicationStatusChart' is from 'package:MoneyNow/screens/charts/loan_charts_screen.dart' ('lib/screens/charts/loan_charts_screen.dart').
+    Try correcting the name to the name of an existing method, or defining a method named '_StatusBucket'.
+          _StatusBucket(
+          ^^^^^^^^^^^^^
+    lib/screens/charts/loan_charts_screen.dart:710:37: Error: The method '_applicationStatusKey' isn't defined for the type '_ApplicationStatusChart'.
+     - '_ApplicationStatusChart' is from 'package:MoneyNow/screens/charts/loan_charts_screen.dart' ('lib/screens/charts/loan_charts_screen.dart').
+    Try correcting the name to the name of an existing method, or defining a method named '_applicationStatusKey'.
+                .where((application) => _applicationStatusKey(application.status) == 'approved')
+                                        ^^^^^^^^^^^^^^^^^^^^^
+    lib/screens/charts/loan_charts_screen.dart:705:7: Error: The method '_StatusBucket' isn't defined for the type '_ApplicationStatusChart'.
+     - '_ApplicationStatusChart' is from 'package:MoneyNow/screens/charts/loan_charts_screen.dart' ('lib/screens/charts/loan_charts_screen.dart').
+    Try correcting the name to the name of an existing method, or defining a method named '_StatusBucket'.
+          _StatusBucket(
+          ^^^^^^^^^^^^^
+    lib/screens/charts/loan_charts_screen.dart:718:37: Error: The method '_applicationStatusKey' isn't defined for the type '_ApplicationStatusChart'.
+     - '_ApplicationStatusChart' is from 'package:MoneyNow/screens/charts/loan_charts_screen.dart' ('lib/screens/charts/loan_charts_screen.dart').
+    Try correcting the name to the name of an existing method, or defining a method named '_applicationStatusKey'.
+                .where((application) => _applicationStatusKey(application.status) == 'rejected')
+                                        ^^^^^^^^^^^^^^^^^^^^^
+    lib/screens/charts/loan_charts_screen.dart:713:7: Error: The method '_StatusBucket' isn't defined for the type '_ApplicationStatusChart'.
+     - '_ApplicationStatusChart' is from 'package:MoneyNow/screens/charts/loan_charts_screen.dart' ('lib/screens/charts/loan_charts_screen.dart').
+    Try correcting the name to the name of an existing method, or defining a method named '_StatusBucket'.
+          _StatusBucket(
+          ^^^^^^^^^^^^^
+    lib/screens/charts/loan_charts_screen.dart:726:37: Error: The method '_applicationStatusKey' isn't defined for the type '_ApplicationStatusChart'.
+     - '_ApplicationStatusChart' is from 'package:MoneyNow/screens/charts/loan_charts_screen.dart' ('lib/screens/charts/loan_charts_screen.dart').
+    Try correcting the name to the name of an existing method, or defining a method named '_applicationStatusKey'.
+                .where((application) => _applicationStatusKey(application.status) == 'other')
+                                        ^^^^^^^^^^^^^^^^^^^^^
+    lib/screens/charts/loan_charts_screen.dart:721:7: Error: The method '_StatusBucket' isn't defined for the type '_ApplicationStatusChart'.
+     - '_ApplicationStatusChart' is from 'package:MoneyNow/screens/charts/loan_charts_screen.dart' ('lib/screens/charts/loan_charts_screen.dart').
+    Try correcting the name to the name of an existing method, or defining a method named '_StatusBucket'.
+          _StatusBucket(
+          ^^^^^^^^^^^^^
+    lib/screens/charts/loan_charts_screen.dart:731:67: Error: The getter 'count' isn't defined for the type 'Object?'.
+     - 'Object' is from 'dart:core'.
+    Try correcting the name to the name of an existing getter, or defining a getter or field named 'count'.
+        final maxCount = buckets.fold<int>(1, (max, bucket) => bucket.count > max ? bucket.count : max);
+                                                                      ^^^^^
+    lib/screens/charts/loan_charts_screen.dart:731:88: Error: The getter 'count' isn't defined for the type 'Object?'.
+     - 'Object' is from 'dart:core'.
+    Try correcting the name to the name of an existing getter, or defining a getter or field named 'count'.
+        final maxCount = buckets.fold<int>(1, (max, bucket) => bucket.count > max ? bucket.count : max);
+                                                                                          ^^^^^
+    lib/screens/charts/loan_charts_screen.dart:830:43: Error: The getter 'count' isn't defined for the type 'Object?'.
+     - 'Object' is from 'dart:core'.
+    Try correcting the name to the name of an existing getter, or defining a getter or field named 'count'.
+                    .where((bucket) => bucket.count > 0)
+                                              ^^^^^
+    lib/screens/charts/loan_charts_screen.dart:834:39: Error: The getter 'color' isn't defined for the type 'Object?'.
+     - 'Object' is from 'dart:core'.
+    Try correcting the name to the name of an existing getter, or defining a getter or field named 'color'.
+                            color: bucket.color,
+                                          ^^^^^
+    lib/screens/charts/loan_charts_screen.dart:835:42: Error: The getter 'label' isn't defined for the type 'Object?'.
+     - 'Object' is from 'dart:core'.
+    Try correcting the name to the name of an existing getter, or defining a getter or field named 'label'.
+                            label: '${bucket.label} (${bucket.count})',
+                                             ^^^^^
+    lib/screens/charts/loan_charts_screen.dart:835:59: Error: The getter 'count' isn't defined for the type 'Object?'.
+     - 'Object' is from 'dart:core'.
+    Try correcting the name to the name of an existing getter, or defining a getter or field named 'count'.
+                            label: '${bucket.label} (${bucket.count})',
+                                                              ^^^^^
+    lib/screens/charts/loan_charts_screen.dart:838:18: Error: The argument type 'List<dynamic>' can't be assigned to the parameter type 'List<Widget>'.
+     - 'List' is from 'dart:core'.
+     - 'Widget' is from 'package:flutter/src/widgets/framework.dart' ('../../../fvm/versions/3.41.6/packages/flutter/lib/src/widgets/framework.dart').
+                    .toList(),
+                     ^
+    lib/screens/charts/loan_charts_screen.dart:853:42: Error: The method '_loanStatusKey' isn't defined for the type '_LoanPortfolioChart'.
+     - '_LoanPortfolioChart' is from 'package:MoneyNow/screens/charts/loan_charts_screen.dart' ('lib/screens/charts/loan_charts_screen.dart').
+    Try correcting the name to the name of an existing method, or defining a method named '_loanStatusKey'.
+        final active = loans.where((loan) => _loanStatusKey(loan.status) == 'active').length;
+                                             ^^^^^^^^^^^^^^
+    lib/screens/charts/loan_charts_screen.dart:854:42: Error: The method '_loanStatusKey' isn't defined for the type '_LoanPortfolioChart'.
+     - '_LoanPortfolioChart' is from 'package:MoneyNow/screens/charts/loan_charts_screen.dart' ('lib/screens/charts/loan_charts_screen.dart').
+    Try correcting the name to the name of an existing method, or defining a method named '_loanStatusKey'.
+        final closed = loans.where((loan) => _loanStatusKey(loan.status) == 'closed').length;
+                                             ^^^^^^^^^^^^^^
+    Target kernel_snapshot_program failed: Exception
+    Failed to package /Users/noname/Documents/loan_app_firebase_mvp/loan_app_firebase_mvp.
+    Command PhaseScriptExecution failed with a nonzero exit code
+    /Users/noname/Documents/loan_app_firebase_mvp/loan_app_firebase_mvp/ios/Pods/Pods.xcodeproj: warning: The iOS deployment target 'IPHONEOS_DEPLOYMENT_TARGET' is set to 10.0, but the range of supported deployment target versions is 12.0 to 26.4.99. (in target 'BoringSSL-GRPC-openssl_grpc' from project 'Pods')
+    /Users/noname/Documents/loan_app_firebase_mvp/loan_app_firebase_mvp/ios/Pods/Pods.xcodeproj: warning: The iOS deployment target 'IPHONEOS_DEPLOYMENT_TARGET' is set to 11.0, but the range of supported deployment target versions is 12.0 to 26.4.99. (in target 'leveldb-library-leveldb_Privacy' from project 'Pods')
+    /Users/noname/Documents/loan_app_firebase_mvp/loan_app_firebase_mvp/ios/Pods/Pods.xcodeproj: warning: The iOS deployment target 'IPHONEOS_DEPLOYMENT_TARGET' is set to 11.0, but the range of supported deployment target versions is 12.0 to 26.4.99. (in target 'gRPC-Core-grpc' from project 'Pods')
+    /Users/noname/Documents/loan_app_firebase_mvp/loan_app_firebase_mvp/ios/Pods/Pods.xcodeproj: warning: The iOS deployment target 'IPHONEOS_DEPLOYMENT_TARGET' is set to 11.0, but the range of supported deployment target versions is 12.0 to 26.4.99. (in target 'gRPC-C++-grpcpp' from project 'Pods')
+    /Users/noname/Documents/loan_app_firebase_mvp/loan_app_firebase_mvp/ios/Pods/Pods.xcodeproj: warning: The iOS deployment target 'IPHONEOS_DEPLOYMENT_TARGET' is set to 11.0, but the range of supported deployment target versions is 12.0 to 26.4.99. (in target 'gRPC-C++-gRPCCertificates-Cpp' from project 'Pods')
+    /Users/noname/Documents/loan_app_firebase_mvp/loan_app_firebase_mvp/ios/Pods/Pods.xcodeproj: warning: The iOS deployment target 'IPHONEOS_DEPLOYMENT_TARGET' is set to 9.0, but the range of supported deployment target versions is 12.0 to 26.4.99. (in target 'abseil-xcprivacy' from project 'Pods')
+    note: Run script build phase 'Run Script' will be run during every build because the option to run the script phase "Based on dependency analysis" is unchecked. (in target 'Runner' from project 'Runner')
+    note: Run script build phase 'Thin Binary' will be run during every build because the option to run the script phase "Based on dependency analysis" is unchecked. (in target 'Runner' from project 'Runner')
+    /Users/noname/Documents/loan_app_firebase_mvp/loan_app_firebase_mvp/ios/Pods/Pods.xcodeproj: warning: The iOS deployment target 'IPHONEOS_DEPLOYMENT_TARGET' is set to 11.0, but the range of supported deployment target versions is 12.0 to 26.4.99. (in target 'RecaptchaInterop' from project 'Pods')
+    /Users/noname/Documents/loan_app_firebase_mvp/loan_app_firebase_mvp/ios/Pods/Pods.xcodeproj: warning: The iOS deployment target 'IPHONEOS_DEPLOYMENT_TARGET' is set to 11.0, but the range of supported deployment target versions is 12.0 to 26.4.99. (in target 'gRPC-C++' from project 'Pods')
+    /Users/noname/Documents/loan_app_firebase_mvp/loan_app_firebase_mvp/ios/Pods/Pods.xcodeproj: warning: The iOS deployment target 'IPHONEOS_DEPLOYMENT_TARGET' is set to 11.0, but the range of supported deployment target versions is 12.0 to 26.4.99. (in target 'gRPC-Core' from project 'Pods')
+    /Users/noname/Documents/loan_app_firebase_mvp/loan_app_firebase_mvp/ios/Pods/Pods.xcodeproj: warning: The iOS deployment target 'IPHONEOS_DEPLOYMENT_TARGET' is set to 11.0, but the range of supported deployment target versions is 12.0 to 26.4.99. (in target 'leveldb-library' from project 'Pods')
+    /Users/noname/Documents/loan_app_firebase_mvp/loan_app_firebase_mvp/ios/Pods/Pods.xcodeproj: warning: The iOS deployment target 'IPHONEOS_DEPLOYMENT_TARGET' is set to 9.0, but the range of supported deployment target versions is 12.0 to 26.4.99. (in target 'abseil' from project 'Pods')
+    /Users/noname/Documents/loan_app_firebase_mvp/loan_app_firebase_mvp/ios/Pods/Pods.xcodeproj: warning: The iOS deployment target 'IPHONEOS_DEPLOYMENT_TARGET' is set to 10.0, but the range of supported deployment target versions is 12.0 to 26.4.99. (in target 'BoringSSL-GRPC' from project 'Pods')
+
+Encountered error while building for device.

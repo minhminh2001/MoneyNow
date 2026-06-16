@@ -88,7 +88,8 @@ class _CreateApplicationScreenState
     _amountController.text = draft.requestedAmount > 0
         ? _incomeNumberFormat.format(draft.requestedAmount.round())
         : '';
-    _termController.text = draft.termWeeks > 0 ? draft.termWeeks.toString() : '6';
+    _termController.text =
+        draft.termWeeks > 0 ? draft.termWeeks.toString() : '6';
     _purposeController.text = draft.purpose;
     _step = (widget.initialStep ?? draft.currentStep).clamp(1, 4);
     _hydrated = true;
@@ -151,7 +152,10 @@ class _CreateApplicationScreenState
 
     final updatedUser = AppUser(
       uid: firebaseUser.uid,
-      email: firebaseUser.email ?? currentProfile?.email ?? '',
+      email: firebaseUser.email ??
+          firebaseUser.phoneNumber ??
+          currentProfile?.email ??
+          '',
       role: currentProfile?.role ?? 'user',
       insuranceNumber: currentProfile?.insuranceNumber ?? '',
       fullName: currentProfile?.fullName ?? '',
@@ -160,6 +164,12 @@ class _CreateApplicationScreenState
       nationalId: currentProfile?.nationalId ?? '',
       employer: _employer,
       monthlyIncome: _monthlyIncome,
+      payoutAccountHolder: currentProfile?.payoutAccountHolder ?? '',
+      payoutBankName: currentProfile?.payoutBankName ?? '',
+      payoutAccountNumber: currentProfile?.payoutAccountNumber ?? '',
+      repaymentAccountHolder: currentProfile?.repaymentAccountHolder ?? '',
+      repaymentBankName: currentProfile?.repaymentBankName ?? '',
+      repaymentAccountNumber: currentProfile?.repaymentAccountNumber ?? '',
       kycStatus: currentProfile?.kycStatus ?? 'pending',
       contactsSyncCount: currentProfile?.contactsSyncCount ?? 0,
       contactsSyncedAt: currentProfile?.contactsSyncedAt,
@@ -286,13 +296,14 @@ class _CreateApplicationScreenState
       return;
     }
 
-    final hasInsuranceNumber = profile?.insuranceNumber.trim().isNotEmpty == true;
-    if (!hasInsuranceNumber && !hasInsuranceProof) {
+    final hasInsuranceNumber =
+        profile?.insuranceNumber.trim().isNotEmpty == true;
+    if (!hasInsuranceNumber) {
       await showAppNoticeDialog(
         context,
         title: 'Thiếu thông tin bảo hiểm',
         message:
-            'Để nộp hồ sơ vay, bạn cần có số bảo hiểm hoặc tải ảnh chụp hồ sơ bảo hiểm. Bạn có thể bổ sung ở hồ sơ cá nhân hoặc màn tài liệu nhé.',
+            'Để nộp hồ sơ vay, bạn cần nhập số bảo hiểm trong hồ sơ cá nhân trước.',
         isError: true,
       );
       return;
@@ -338,7 +349,9 @@ class _CreateApplicationScreenState
 
   void _startContactsSyncFromFlow({bool auto = false}) {
     final firebaseUser = ref.read(currentUserProvider);
-    if (firebaseUser == null || _preparingContacts || _backgroundSyncingContacts) {
+    if (firebaseUser == null ||
+        _preparingContacts ||
+        _backgroundSyncingContacts) {
       return;
     }
 
@@ -413,17 +426,17 @@ class _CreateApplicationScreenState
   ) async {
     try {
       await ref.read(profileRepositoryProvider).savePhoneContacts(
-        uid: uid,
-        contacts: contacts,
-        onProgress: (processed, total, message) {
-          if (!mounted) return;
-          setState(() {
-            _contactsSyncProcessed = processed;
-            _contactsSyncTotal = total;
-            _contactsSyncStatusText = message;
-          });
-        },
-      );
+            uid: uid,
+            contacts: contacts,
+            onProgress: (processed, total, message) {
+              if (!mounted) return;
+              setState(() {
+                _contactsSyncProcessed = processed;
+                _contactsSyncTotal = total;
+                _contactsSyncStatusText = message;
+              });
+            },
+          );
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -458,7 +471,6 @@ class _CreateApplicationScreenState
       });
     });
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -525,7 +537,7 @@ class _CreateApplicationScreenState
             const SizedBox(height: 12),
             const _InfoStrip(
               text:
-                  'Hoàn tất các bước tiếp theo để tăng hạn mức, duyệt hồ sơ nhanh hơn và sẵn sàng giải ngân.',
+                  'Hoàn tất các bước tiếp theo để bổ sung thông tin và giúp hệ thống xem xét hồ sơ đầy đủ hơn.',
             ),
             const SizedBox(height: 16),
             Row(
@@ -564,9 +576,9 @@ class _CreateApplicationScreenState
                     ? 'Đang chuẩn bị danh bạ...'
                     : _backgroundSyncingContacts
                         ? 'Đang đồng bộ nền...'
-                    : (profile?.hasSyncedContacts ?? false)
-                        ? 'Đồng bộ lại danh bạ'
-                        : 'Cho phép truy cập danh bạ',
+                        : (profile?.hasSyncedContacts ?? false)
+                            ? 'Đồng bộ lại danh bạ'
+                            : 'Cho phép truy cập danh bạ',
               ),
             ),
             if (_contactsSyncStatusText != null) ...[
@@ -582,8 +594,9 @@ class _CreateApplicationScreenState
                 value: _backgroundSyncingContacts
                     ? null
                     : _contactsSyncTotal > 0
-                    ? (_contactsSyncProcessed / _contactsSyncTotal).clamp(0, 1)
-                    : null,
+                        ? (_contactsSyncProcessed / _contactsSyncTotal)
+                            .clamp(0, 1)
+                        : null,
                 borderRadius: BorderRadius.circular(999),
                 minHeight: 8,
               ),
@@ -868,14 +881,22 @@ class _PreApprovalCard extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              AppFormatters.currency(amount),
+              'Số tiền thực nhận',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.78),
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              AppFormatters.currency(estimate.netDisbursement),
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                     color: const Color(0xFFE8FF7A),
                   ),
             ),
             const SizedBox(height: 10),
             Text(
-              'Bạn đang yêu cầu vay ${AppFormatters.currency(requestedAmount)} trong $termWeeks tuần (${termWeeks * 7} ngày). Hệ thống hỗ trợ trả góp với số tiền thanh toán mỗi tuần cố định.',
+              'Bạn đang yêu cầu vay ${AppFormatters.currency(requestedAmount)} trong $termWeeks tuần (${termWeeks * 7} ngày). Khi giải ngân, hệ thống sẽ khấu trừ phí thẩm định hồ sơ 4% và phí dịch vụ 4% trên tổng tiền vay, nên số tiền thực nhận sẽ thấp hơn số tiền đăng ký.',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: Colors.white.withValues(alpha: 0.86),
                   ),
@@ -886,12 +907,28 @@ class _PreApprovalCard extends StatelessWidget {
               runSpacing: 10,
               children: [
                 _MetricBadge(
+                  label: 'Số tiền vay',
+                  value: AppFormatters.currency(amount),
+                ),
+                _MetricBadge(
                   label: 'Trả mỗi tuần',
                   value: AppFormatters.currency(estimate.weeklyInstallment),
                 ),
                 _MetricBadge(
                   label: 'Tổng tiền trả',
                   value: AppFormatters.currency(estimate.totalPayable),
+                ),
+                _MetricBadge(
+                  label: 'Phí thẩm định hồ sơ',
+                  value: AppFormatters.currency(estimate.appraisalFee),
+                ),
+                _MetricBadge(
+                  label: 'Phí dịch vụ',
+                  value: AppFormatters.currency(estimate.serviceFee),
+                ),
+                _MetricBadge(
+                  label: 'Số tiền thực nhận',
+                  value: AppFormatters.currency(estimate.netDisbursement),
                 ),
                 _MetricBadge(
                   label: 'Phí quá hạn',
@@ -977,7 +1014,7 @@ class _VerificationLightCard extends StatelessWidget {
             const _IntroBlock(
               title: 'Bổ sung hồ sơ cá nhân',
               body:
-                  'Hoàn tất thông tin cá nhân và chia sẻ danh bạ để hệ thống tiếp tục xem xét và phê duyệt hồ sơ vay của bạn.',
+                  'Hoàn tất thông tin cá nhân và chia sẻ danh bạ để hệ thống tiếp tục tiếp nhận và xem xét hồ sơ vay của bạn.',
             ),
             const SizedBox(height: 12),
             _CheckRow(label: 'SĐT đã khai báo', done: phone.isNotEmpty),
@@ -1022,7 +1059,7 @@ class _VerificationMainCard extends StatelessWidget {
             const _IntroBlock(
               title: 'Xác thực giấy tờ tùy thân',
               body:
-                  'Tải lên CCCD hai mặt và ảnh chân dung để hoàn tất định danh. Nếu chưa có số bảo hiểm, bạn có thể tải thêm ảnh chụp hồ sơ bảo hiểm trong cùng màn này.',
+                  'Tải lên CCCD hai mặt và ảnh chân dung để hoàn tất định danh. Số bảo hiểm là thông tin bắt buộc và cần được khai báo trong hồ sơ cá nhân.',
             ),
             const SizedBox(height: 12),
             _CheckRow(label: 'Hồ sơ cá nhân đã đủ', done: profileComplete),
@@ -1037,7 +1074,7 @@ class _VerificationMainCard extends StatelessWidget {
               child: Text(
                 documentCount >= 3
                     ? 'Tốt rồi. Hồ sơ của bạn đã sẵn sàng để nộp.'
-                    : 'Bạn đang ở bước cuối. Hoàn tất tài liệu để mở khóa nộp hồ sơ, trả góp theo tuần và tăng cơ hội duyệt nhanh hơn.',
+                    : 'Bạn đang ở bước cuối. Hoàn tất tài liệu để tiếp tục nộp hồ sơ và giúp quá trình xem xét diễn ra đầy đủ hơn.',
               ),
             ),
           ],

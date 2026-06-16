@@ -4,7 +4,7 @@ MVP app vay tiền online viết bằng **Flutter + Firebase**.
 
 ## Có gì trong project
 
-- Đăng ký / đăng nhập bằng **Email + Password**
+- Đăng ký bằng **số điện thoại + OTP**, sau đó đăng nhập bằng **số điện thoại + mật khẩu**
 - Quản lý hồ sơ người dùng
 - Upload hồ sơ KYC mẫu lên **Firebase Storage**
 - Nộp hồ sơ vay qua **Cloud Functions**
@@ -52,7 +52,7 @@ Script trên sẽ:
 
 1. Tạo Firebase project mới
 2. Bật:
-   - Authentication > Email/Password
+   - Authentication > Phone
    - Firestore Database
    - Firebase Storage
    - Cloud Functions
@@ -168,6 +168,39 @@ firebase deploy --only functions
 ```bash
 flutter run
 ```
+
+## Ghi nhớ: test OTP Firebase
+
+Hiện tại project đang hỗ trợ test đăng nhập số điện thoại bằng `test phone numbers` của Firebase để dev trên iOS/debug mà chưa cần cấu hình APNs production đầy đủ.
+
+### Cách dùng
+
+1. Vào `Firebase Console` > `Authentication` > `Sign-in method`
+2. Bật provider `Phone`
+3. Mở mục `Phone numbers for testing`
+4. Thêm một số test, ví dụ `+84901234567`
+5. Gán mã OTP test, ví dụ `123456`
+6. Chạy app bản debug và đăng nhập bằng đúng số test đó
+7. Nhập đúng mã test đã khai báo, Firebase sẽ không gửi SMS thật
+
+### Cấu hình đang dùng trong app
+
+- Trong [main.dart](/Users/noname/Documents/loan_app_firebase_mvp/loan_app_firebase_mvp/lib/main.dart), bản debug đang bật:
+
+```dart
+FirebaseAuth.instance.setSettings(
+  appVerificationDisabledForTesting: true,
+);
+```
+
+- Trong [login_screen.dart](/Users/noname/Documents/loan_app_firebase_mvp/loan_app_firebase_mvp/lib/screens/auth/login_screen.dart), bản debug có banner nhắc đây là chế độ test OTP.
+
+### Lưu ý rất quan trọng
+
+- Khi `appVerificationDisabledForTesting = true`, chỉ số điện thoại test trong Firebase mới đăng nhập được
+- Số điện thoại thật sẽ không hoàn tất OTP trong chế độ này
+- Trước khi đưa sang production hoặc test OTP thật, phải tắt lại cờ test trong `lib/main.dart`
+- Nếu muốn dùng OTP thật trên iOS, cần thêm APNs key trong Apple Developer và upload vào `Firebase Console` > `Project settings` > `Cloud Messaging`
 
 ## Luồng nghiệp vụ mẫu
 

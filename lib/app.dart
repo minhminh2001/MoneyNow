@@ -1,7 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'providers/app_providers.dart';
+import 'screens/admin/admin_web_login_screen.dart';
+import 'screens/admin/admin_web_shell.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/home/home_screen.dart';
 
@@ -15,6 +18,9 @@ class LoanApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isAdminWebRoute =
+        kIsWeb && Uri.base.path.toLowerCase().startsWith('/admin');
+
     if (initializationError != null) {
       return MaterialApp(
         title: 'Money Now',
@@ -38,7 +44,56 @@ class LoanApp extends ConsumerWidget {
       surface: Colors.white,
     );
 
+    var appStateKey = 'loading';
+    Widget home = const SplashScreen();
+
+    authState.when(
+      data: (user) {
+        if (isAdminWebRoute) {
+          if (user == null) {
+            appStateKey = 'admin-logged-out';
+            home = const AdminWebLoginScreen();
+            return;
+          }
+          appStateKey = 'admin-logged-in';
+          home = const AdminWebShell();
+          return;
+        }
+
+        if (user == null) {
+          appStateKey = 'logged-out';
+          home = const LoginScreen();
+          return;
+        }
+        final hasPasswordProvider = user.providerData.any(
+          (provider) => provider.providerId == 'password',
+        );
+        final hasPhoneProvider = user.providerData.any(
+          (provider) => provider.providerId == 'phone',
+        );
+        if (hasPhoneProvider && !hasPasswordProvider) {
+          appStateKey = 'pending-password';
+          home = LoginScreen(
+            registrationPending: true,
+            initialPhoneNumber: user.phoneNumber,
+          );
+          return;
+        }
+        appStateKey = 'logged-in';
+        home = const HomeScreen();
+      },
+      loading: () {
+        appStateKey = 'loading';
+        home = const SplashScreen();
+      },
+      error: (error, _) {
+        appStateKey = 'firebase-error';
+        home = FirebaseSetupScreen(errorText: error.toString());
+      },
+    );
+
     return MaterialApp(
+      key: ValueKey(appStateKey),
       title: 'Money Now',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
@@ -157,18 +212,7 @@ class LoanApp extends ConsumerWidget {
           helperStyle: TextStyle(color: Color(0xFF6B7A90)),
         ),
       ),
-      home: authState.when(
-        data: (user) {
-          if (user == null) {
-            return const LoginScreen();
-          }
-          return const HomeScreen();
-        },
-        loading: () => const SplashScreen(),
-        error: (error, _) => FirebaseSetupScreen(
-          errorText: error.toString(),
-        ),
-      ),
+      home: home,
     );
   }
 }

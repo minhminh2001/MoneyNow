@@ -12,6 +12,12 @@ class AppUser {
     required this.nationalId,
     required this.employer,
     required this.monthlyIncome,
+    required this.payoutAccountHolder,
+    required this.payoutBankName,
+    required this.payoutAccountNumber,
+    required this.repaymentAccountHolder,
+    required this.repaymentBankName,
+    required this.repaymentAccountNumber,
     required this.kycStatus,
     required this.contactsSyncCount,
     required this.contactsSyncedAt,
@@ -29,6 +35,12 @@ class AppUser {
   final String nationalId;
   final String employer;
   final double monthlyIncome;
+  final String payoutAccountHolder;
+  final String payoutBankName;
+  final String payoutAccountNumber;
+  final String repaymentAccountHolder;
+  final String repaymentBankName;
+  final String repaymentAccountNumber;
   final String kycStatus;
   final int contactsSyncCount;
   final DateTime? contactsSyncedAt;
@@ -50,6 +62,12 @@ class AppUser {
       nationalId: '',
       employer: '',
       monthlyIncome: 0,
+      payoutAccountHolder: '',
+      payoutBankName: '',
+      payoutAccountNumber: '',
+      repaymentAccountHolder: '',
+      repaymentBankName: '',
+      repaymentAccountNumber: '',
       kycStatus: 'pending',
       contactsSyncCount: 0,
       contactsSyncedAt: null,
@@ -79,6 +97,12 @@ class AppUser {
       nationalId: readString(map['nationalId']),
       employer: readString(map['employer']),
       monthlyIncome: readDouble(map['monthlyIncome']),
+      payoutAccountHolder: readString(map['payoutAccountHolder']),
+      payoutBankName: readString(map['payoutBankName']),
+      payoutAccountNumber: readString(map['payoutAccountNumber']),
+      repaymentAccountHolder: readString(map['repaymentAccountHolder']),
+      repaymentBankName: readString(map['repaymentBankName']),
+      repaymentAccountNumber: readString(map['repaymentAccountNumber']),
       kycStatus: readString(map['kycStatus']).isEmpty
           ? 'pending'
           : readString(map['kycStatus']),
@@ -101,6 +125,12 @@ class AppUser {
       'nationalId': nationalId,
       'employer': employer,
       'monthlyIncome': monthlyIncome,
+      'payoutAccountHolder': payoutAccountHolder,
+      'payoutBankName': payoutBankName,
+      'payoutAccountNumber': payoutAccountNumber,
+      'repaymentAccountHolder': repaymentAccountHolder,
+      'repaymentBankName': repaymentBankName,
+      'repaymentAccountNumber': repaymentAccountNumber,
       'kycStatus': kycStatus,
       'contactsSync': {
         'count': contactsSyncCount,
