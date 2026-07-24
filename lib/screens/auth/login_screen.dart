@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -23,6 +25,8 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
+  static const int _otpResendCooldownSeconds = 60;
+
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
@@ -35,6 +39,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   String? _verificationId;
   int? _resendToken;
   String _normalizedPhone = '';
+  int _otpResendCountdown = 0;
 
   @override
   void initState() {
@@ -53,7 +58,27 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _otpController.dispose();
+    _otpResendTimer?.cancel();
     super.dispose();
+  }
+
+  Timer? _otpResendTimer;
+
+  void _startOtpResendCooldown() {
+    _otpResendTimer?.cancel();
+    setState(() => _otpResendCountdown = _otpResendCooldownSeconds);
+    _otpResendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (_otpResendCountdown <= 1) {
+        timer.cancel();
+        setState(() => _otpResendCountdown = 0);
+        return;
+      }
+      setState(() => _otpResendCountdown -= 1);
+    });
   }
 
   Future<void> _submit() async {
@@ -110,6 +135,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         _resendToken = result.resendToken;
         _otpRequested = true;
       });
+      _startOtpResendCooldown();
 
       await showAppNoticeDialog(
         context,
@@ -118,6 +144,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             'Nhập mã OTP đã gửi tới ${_prettyPhone(normalizedPhone)} để tiếp tục tạo mật khẩu.',
       );
     } catch (error) {
+      final authErrorCode =
+          error is FirebaseAuthException ? error.code.trim().toLowerCase() : '';
+      if (authErrorCode == 'too-many-requests') {
+        _startOtpResendCooldown();
+      }
       if (!mounted) return;
       await showAppNoticeDialog(
         context,
@@ -130,6 +161,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         setState(() => _loading = false);
       }
     }
+  }
+
+  String _resendOtpLabel() {
+    if (_loading) return 'Đang gửi OTP...';
+    if (_otpResendCountdown > 0) {
+      return 'Gửi lại sau ${_otpResendCountdown}s';
+    }
+    return 'Gửi lại OTP';
   }
 
   Future<void> _verifyRegisterOtp() async {
@@ -621,11 +660,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: OutlinedButton(
-                                    onPressed: _loading
+                                    onPressed: _loading ||
+                                            _otpResendCountdown > 0
                                         ? null
                                         : () =>
                                               _requestRegisterOtp(resend: true),
-                                    child: const Text('Gửi lại OTP'),
+                                    child: Text(_resendOtpLabel()),
                                   ),
                                 ),
                               ],

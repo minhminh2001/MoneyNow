@@ -38,6 +38,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   final _repaymentAccountNumberController = TextEditingController();
 
   bool _loading = false;
+  bool _deletingAccount = false;
   bool _preparingContacts = false;
   bool _backgroundSyncingContacts = false;
   bool _hydrated = false;
@@ -209,6 +210,104 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     } finally {
       if (mounted) {
         setState(() => _loading = false);
+      }
+    }
+  }
+
+  Future<void> _confirmDeleteAccount() async {
+    FocusScope.of(context).unfocus();
+    final confirmController = TextEditingController();
+    try {
+      final confirmed = await showDialog<bool>(
+            context: context,
+            barrierDismissible: false,
+            builder: (dialogContext) {
+              return AlertDialog(
+                title: const Text('Xóa tài khoản'),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Thao tác này sẽ gửi yêu cầu xóa tài khoản tới quản trị viên. '
+                      'Tài khoản chỉ được xóa sau khi admin kiểm tra và xác nhận, đặc biệt khi bạn còn hồ sơ vay hoặc khoản vay đang hoạt động.',
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Nhập XOA để xác nhận.',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: confirmController,
+                      autofocus: true,
+                      textCapitalization: TextCapitalization.characters,
+                      decoration: const InputDecoration(
+                        labelText: 'Mã xác nhận',
+                        hintText: 'XOA',
+                      ),
+                    ),
+                  ],
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(false),
+                    child: const Text('Hủy'),
+                  ),
+                  FilledButton.tonal(
+                    onPressed: () {
+                      final text = confirmController.text.trim().toUpperCase();
+                      Navigator.of(dialogContext).pop(text == 'XOA');
+                    },
+                    child: const Text('Gửi yêu cầu'),
+                  ),
+                ],
+              );
+            },
+          ) ??
+          false;
+
+      if (!confirmed) {
+        if (confirmController.text.trim().isNotEmpty &&
+            confirmController.text.trim().toUpperCase() != 'XOA' &&
+            mounted) {
+          await showAppNoticeDialog(
+            context,
+            title: 'Chưa xác nhận',
+            message: 'Bạn cần nhập đúng XOA để xóa tài khoản.',
+            isError: true,
+          );
+        }
+        return;
+      }
+
+      if (!mounted) return;
+      setState(() => _deletingAccount = true);
+
+      await ref.read(authRepositoryProvider).requestAccountDeletion();
+
+      if (!mounted) return;
+      await showAppNoticeDialog(
+        context,
+        title: 'Đã gửi yêu cầu',
+        message:
+            'Yêu cầu xóa tài khoản đã được gửi tới quản trị viên. Admin sẽ kiểm tra hồ sơ/khoản vay trước khi xác nhận xóa.',
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop();
+    } catch (error) {
+      if (!mounted) return;
+      await showAppNoticeDialog(
+        context,
+        title: 'Không thể gửi yêu cầu',
+        message:
+            'Hệ thống chưa thể gửi yêu cầu xóa tài khoản lúc này. Vui lòng thử lại sau.\n\nChi tiết: $error',
+        isError: true,
+      );
+    } finally {
+      confirmController.dispose();
+      if (mounted) {
+        setState(() => _deletingAccount = false);
       }
     }
   }
@@ -683,8 +782,58 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
                 const SizedBox(height: 16),
                 FilledButton(
-                  onPressed: _loading ? null : () => _save(currentProfile),
+                  onPressed: _loading || _deletingAccount
+                      ? null
+                      : () => _save(currentProfile),
                   child: Text(_loading ? 'Đang lưu...' : 'Lưu hồ sơ'),
+                ),
+                const SizedBox(height: 16),
+                Card(
+                  color: const Color(0xFFFFF4F0),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Yêu cầu xóa tài khoản',
+                          style:
+                              Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    color: const Color(0xFF9B2F1F),
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                        ),
+                        const SizedBox(height: 6),
+                        const Text(
+                          'Bạn có thể gửi yêu cầu xóa tài khoản ngay trong app. '
+                          'Admin sẽ kiểm tra hồ sơ/khoản vay trước khi xác nhận xóa dữ liệu.',
+                        ),
+                        const SizedBox(height: 12),
+                        OutlinedButton.icon(
+                          onPressed: _loading || _deletingAccount
+                              ? null
+                              : _confirmDeleteAccount,
+                          icon: _deletingAccount
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.delete_outline),
+                          label: Text(
+                            _deletingAccount
+                                ? 'Đang gửi yêu cầu...'
+                                : 'Gửi yêu cầu xóa tài khoản',
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF9B2F1F),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ),

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,6 +11,7 @@ import '../../models/loan_application.dart';
 import '../../providers/app_providers.dart';
 import '../../models/loan_draft.dart';
 import '../admin/loan_review_admin_screen.dart';
+import '../admin/admin_web_shell.dart';
 import '../application/application_list_screen.dart';
 import '../charts/loan_charts_screen.dart';
 import '../documents/document_upload_screen.dart';
@@ -179,7 +181,9 @@ class HomeScreen extends ConsumerWidget {
                 onPrimaryTap: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (_) => const LoanReviewAdminScreen(),
+                      builder: (_) => kIsWeb
+                          ? const AdminWebShell()
+                          : const LoanReviewAdminScreen(),
                     ),
                   );
                 },

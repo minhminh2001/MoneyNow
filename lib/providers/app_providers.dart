@@ -40,7 +40,10 @@ final functionsProvider = Provider<FirebaseFunctions>((ref) {
 });
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
-  return AuthRepository(ref.watch(firebaseAuthProvider));
+  return AuthRepository(
+    ref.watch(firebaseAuthProvider),
+    ref.watch(functionsProvider),
+  );
 });
 
 final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
@@ -64,6 +67,7 @@ final loanRepositoryProvider = Provider<LoanRepository>((ref) {
 
 final adminRepositoryProvider = Provider<AdminRepository>((ref) {
   return AdminRepository(
+    firestore: ref.watch(firestoreProvider),
     functions: ref.watch(functionsProvider),
     auth: ref.watch(firebaseAuthProvider),
   );

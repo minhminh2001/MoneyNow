@@ -9,7 +9,7 @@ import 'app.dart';
 import 'firebase_options.dart';
 
 const _firebaseAppIdPrefsKey = 'firebase_config_app_id';
-const _enableFirebasePhoneAuthTestMode = true;
+const _enableFirebasePhoneAuthTestMode = false;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,7 +23,14 @@ Future<void> main() async {
       );
     }
 
-    if (kDebugMode && _enableFirebasePhoneAuthTestMode) {
+    final supportsPhoneAuthTestMode =
+        !kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.android ||
+            defaultTargetPlatform == TargetPlatform.iOS);
+
+    if (kDebugMode &&
+        _enableFirebasePhoneAuthTestMode &&
+        supportsPhoneAuthTestMode) {
       await FirebaseAuth.instance.setSettings(
         appVerificationDisabledForTesting: true,
       );

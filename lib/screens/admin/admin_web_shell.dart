@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/widgets/app_notice_dialog.dart';
 import '../../providers/app_providers.dart';
+import 'account_deletion_requests_screen.dart';
 import 'admin_analytics_panel.dart';
+import 'admin_customers_screen.dart';
 import 'admin_payment_settings_screen.dart';
 import 'loan_review_admin_screen.dart';
 
@@ -11,6 +13,8 @@ enum _AdminSection {
   applications,
   analytics,
   paymentSettings,
+  accountDeletionRequests,
+  customers,
 }
 
 class AdminWebShell extends ConsumerStatefulWidget {
@@ -42,17 +46,7 @@ class _AdminWebShellState extends ConsumerState<AdminWebShell> {
                     width: 280,
                     child: _AdminSidebar(
                       selectedSection: _section,
-                      onSelect: (section) async {
-                        if (section == null) {
-                          await showAppNoticeDialog(
-                            context,
-                            title: 'Chưa mở module này',
-                            message:
-                                'Mục Khách hàng chưa được triển khai trong bản web admin hiện tại.',
-                            isError: true,
-                          );
-                          return;
-                        }
+                      onSelect: (section) {
                         setState(() => _section = section);
                       },
                     ),
@@ -78,39 +72,15 @@ class _AdminWebShellState extends ConsumerState<AdminWebShell> {
                               if (!wide)
                                 _AdminMobileNav(
                                   selectedSection: _section,
-                                  onSelect: (section) async {
-                                    if (section == null) {
-                                      await showAppNoticeDialog(
-                                        context,
-                                        title: 'Chưa mở module này',
-                                        message:
-                                            'Mục Khách hàng chưa được triển khai trong bản web admin hiện tại.',
-                                        isError: true,
-                                      );
-                                      return;
-                                    }
+                                  onSelect: (section) {
                                     setState(() => _section = section);
                                   },
                                 ),
                               _AdminHeroCard(section: _section),
                               const SizedBox(height: 16),
                               _AdminSectionTitle(
-                                title: switch (_section) {
-                                  _AdminSection.applications =>
-                                    'Hồ sơ cần xử lý',
-                                  _AdminSection.analytics =>
-                                    'Biểu đồ và thống kê',
-                                  _AdminSection.paymentSettings =>
-                                    'Cấu hình thanh toán',
-                                },
-                                subtitle: switch (_section) {
-                                  _AdminSection.applications =>
-                                    'Theo dõi, duyệt hoặc từ chối hồ sơ vay ngay trên giao diện web.',
-                                  _AdminSection.analytics =>
-                                    'Theo dõi nhanh tình hình hồ sơ và khoản vay trên giao diện quản trị.',
-                                  _AdminSection.paymentSettings =>
-                                    'Quản lý tập trung tài khoản nhận tiền trả nợ để không phải sửa qua màn hồ sơ.',
-                                },
+                                title: _sectionTitle(_section),
+                                subtitle: _sectionSubtitle(_section),
                               ),
                               const SizedBox(height: 12),
                               SizedBox(
@@ -118,21 +88,18 @@ class _AdminWebShellState extends ConsumerState<AdminWebShell> {
                                     ? 640
                                     : _section == _AdminSection.analytics
                                         ? 720
-                                        : 760,
+                                        : _section ==
+                                                _AdminSection.paymentSettings
+                                            ? 760
+                                            : _section ==
+                                                    _AdminSection
+                                                        .accountDeletionRequests
+                                                ? 760
+                                                : 720,
                                 child: Card(
                                   child: Padding(
                                     padding: const EdgeInsets.all(8),
-                                    child: switch (_section) {
-                                      _AdminSection.applications =>
-                                        const LoanReviewAdminScreen(
-                                          embedded: true,
-                                          skipAdminGate: true,
-                                        ),
-                                      _AdminSection.analytics =>
-                                        const AdminAnalyticsPanel(),
-                                      _AdminSection.paymentSettings =>
-                                        const AdminPaymentSettingsScreen(),
-                                    },
+                                    child: _buildSectionContent(),
                                   ),
                                 ),
                               ),
@@ -150,6 +117,54 @@ class _AdminWebShellState extends ConsumerState<AdminWebShell> {
       ),
     );
   }
+
+  String _sectionTitle(_AdminSection section) {
+    switch (section) {
+      case _AdminSection.applications:
+        return 'Hồ sơ cần xử lý';
+      case _AdminSection.analytics:
+        return 'Biểu đồ và thống kê';
+      case _AdminSection.paymentSettings:
+        return 'Cấu hình thanh toán';
+      case _AdminSection.accountDeletionRequests:
+        return 'Yêu cầu xóa tài khoản';
+      case _AdminSection.customers:
+        return 'Khách hàng';
+    }
+  }
+
+  String _sectionSubtitle(_AdminSection section) {
+    switch (section) {
+      case _AdminSection.applications:
+        return 'Theo dõi, duyệt hoặc từ chối hồ sơ vay ngay trên giao diện web.';
+      case _AdminSection.analytics:
+        return 'Theo dõi nhanh tình hình hồ sơ và khoản vay trên giao diện quản trị.';
+      case _AdminSection.paymentSettings:
+        return 'Quản lý tập trung tài khoản nhận tiền trả nợ để không phải sửa qua màn hồ sơ.';
+      case _AdminSection.accountDeletionRequests:
+        return 'Kiểm tra hồ sơ/khoản vay trước khi xác nhận xóa tài khoản người dùng.';
+      case _AdminSection.customers:
+        return 'Tra cứu nhanh khách vay, trạng thái KYC, hồ sơ gần nhất và khoản vay hiện tại.';
+    }
+  }
+
+  Widget _buildSectionContent() {
+    switch (_section) {
+      case _AdminSection.applications:
+        return const LoanReviewAdminScreen(
+          embedded: true,
+          skipAdminGate: true,
+        );
+      case _AdminSection.analytics:
+        return const AdminAnalyticsPanel();
+      case _AdminSection.paymentSettings:
+        return const AdminPaymentSettingsScreen();
+      case _AdminSection.accountDeletionRequests:
+        return const AccountDeletionRequestsScreen();
+      case _AdminSection.customers:
+        return const AdminCustomersScreen();
+    }
+  }
 }
 
 class _AdminSidebar extends ConsumerWidget {
@@ -159,7 +174,7 @@ class _AdminSidebar extends ConsumerWidget {
   });
 
   final _AdminSection selectedSection;
-  final Future<void> Function(_AdminSection? section) onSelect;
+  final ValueChanged<_AdminSection> onSelect;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -254,11 +269,17 @@ class _AdminSidebar extends ConsumerWidget {
           ),
           const SizedBox(height: 10),
           _SidebarNavItem(
+            icon: Icons.manage_accounts_outlined,
+            title: 'Yêu cầu xóa tài khoản',
+            active: selectedSection == _AdminSection.accountDeletionRequests,
+            onTap: () => onSelect(_AdminSection.accountDeletionRequests),
+          ),
+          const SizedBox(height: 10),
+          _SidebarNavItem(
             icon: Icons.people_alt_outlined,
             title: 'Khách hàng',
-            active: false,
-            enabled: false,
-            onTap: () => onSelect(null),
+            active: selectedSection == _AdminSection.customers,
+            onTap: () => onSelect(_AdminSection.customers),
           ),
           const Spacer(),
           Text(
@@ -280,7 +301,7 @@ class _AdminMobileNav extends StatelessWidget {
   });
 
   final _AdminSection selectedSection;
-  final Future<void> Function(_AdminSection? section) onSelect;
+  final ValueChanged<_AdminSection> onSelect;
 
   @override
   Widget build(BuildContext context) {
@@ -306,10 +327,14 @@ class _AdminMobileNav extends StatelessWidget {
             onTap: () => onSelect(_AdminSection.paymentSettings),
           ),
           _MobileNavChip(
+            label: 'Yêu cầu xóa tài khoản',
+            selected: selectedSection == _AdminSection.accountDeletionRequests,
+            onTap: () => onSelect(_AdminSection.accountDeletionRequests),
+          ),
+          _MobileNavChip(
             label: 'Khách hàng',
-            selected: false,
-            enabled: false,
-            onTap: () => onSelect(null),
+            selected: selectedSection == _AdminSection.customers,
+            onTap: () => onSelect(_AdminSection.customers),
           ),
         ],
       ),
@@ -322,13 +347,11 @@ class _MobileNavChip extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onTap,
-    this.enabled = true,
   });
 
   final String label;
   final bool selected;
-  final bool enabled;
-  final Future<void> Function() onTap;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -337,15 +360,12 @@ class _MobileNavChip extends StatelessWidget {
       onPressed: () {
         onTap();
       },
-      backgroundColor:
-          selected ? const Color(0xFFFFE4CF) : Colors.white,
+      backgroundColor: selected ? const Color(0xFFFFE4CF) : Colors.white,
       side: BorderSide(
-        color: selected
-            ? const Color(0xFFE46A11)
-            : const Color(0xFFE3EAF2),
+        color: selected ? const Color(0xFFE46A11) : const Color(0xFFE3EAF2),
       ),
       labelStyle: TextStyle(
-        color: enabled ? const Color(0xFF12343B) : const Color(0xFF8A9BAE),
+        color: const Color(0xFF12343B),
         fontWeight: FontWeight.w700,
       ),
     );
@@ -358,21 +378,18 @@ class _SidebarNavItem extends StatelessWidget {
     required this.title,
     required this.onTap,
     this.active = false,
-    this.enabled = true,
   });
 
   final IconData icon;
   final String title;
   final VoidCallback onTap;
   final bool active;
-  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
-    final background = active
-        ? const Color(0xFFE46A11)
-        : Colors.white.withValues(alpha: enabled ? 0.06 : 0.03);
-    final textColor = enabled ? Colors.white : Colors.white54;
+    final background =
+        active ? const Color(0xFFE46A11) : Colors.white.withValues(alpha: 0.06);
+    const textColor = Colors.white;
 
     return Material(
       color: Colors.transparent,
@@ -476,12 +493,20 @@ class _AdminHeroCard extends StatelessWidget {
         ? 'Bảng điều khiển xét duyệt'
         : section == _AdminSection.analytics
             ? 'Bảng điều khiển phân tích'
-            : 'Bảng cấu hình thanh toán';
+            : section == _AdminSection.paymentSettings
+                ? 'Bảng cấu hình thanh toán'
+                : section == _AdminSection.accountDeletionRequests
+                    ? 'Bảng xử lý yêu cầu tài khoản'
+                    : 'Bảng quản lý khách hàng';
     final body = section == _AdminSection.applications
         ? 'Phiên bản web này tập trung vào thao tác quản trị: xem danh sách hồ sơ, lọc trạng thái, duyệt hoặc từ chối hồ sơ vay.'
         : section == _AdminSection.analytics
             ? 'Theo dõi nhanh số lượng hồ sơ, tình trạng khoản vay và các chỉ số vận hành từ giao diện quản trị web.'
-            : 'Thiết lập tập trung tài khoản nhận trả nợ để các khoản vay mới luôn hiển thị đúng thông tin thanh toán.';
+            : section == _AdminSection.paymentSettings
+                ? 'Thiết lập tập trung tài khoản nhận trả nợ để các khoản vay mới luôn hiển thị đúng thông tin thanh toán.'
+                : section == _AdminSection.accountDeletionRequests
+                    ? 'Người dùng chỉ gửi yêu cầu. Admin cần kiểm tra khoản vay, nghĩa vụ thanh toán và xác nhận trước khi xóa tài khoản.'
+                    : 'Tập trung danh sách khách vay để admin tra cứu hồ sơ, liên hệ và khoản vay hiện tại trên cùng một màn hình.';
 
     return Container(
       padding: const EdgeInsets.all(24),

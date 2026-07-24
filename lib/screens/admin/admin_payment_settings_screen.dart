@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/widgets/app_notice_dialog.dart';
 import '../../models/admin_payment_settings.dart';
 import '../../providers/app_providers.dart';
+import '../../repositories/admin_repository.dart';
 
 class AdminPaymentSettingsScreen extends ConsumerStatefulWidget {
   const AdminPaymentSettingsScreen({super.key});

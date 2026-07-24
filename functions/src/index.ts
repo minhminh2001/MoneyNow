@@ -88,6 +88,80 @@ async function requireAdminUidFromRequest(request: any): Promise<string> {
   return reviewerUid;
 }
 
+async function requireSignedInUidFromRequest(request: any): Promise<string> {
+  let uid = request.auth?.uid as string | undefined;
+  if (uid) return uid;
+
+  const idToken = String(request.data?.idToken ?? "").trim();
+  if (!idToken) {
+    throw new HttpsError("unauthenticated", "Ban can dang nhap.");
+  }
+
+  try {
+    const decoded = await admin.auth().verifyIdToken(idToken);
+    return decoded.uid;
+  } catch (_error) {
+    throw new HttpsError("unauthenticated", "Phien dang nhap khong hop le.");
+  }
+}
+
+async function deleteCollectionDocs(
+  collectionRef: FirebaseFirestore.CollectionReference,
+): Promise<number> {
+  const snapshot = await collectionRef.get();
+  if (snapshot.empty) return 0;
+
+  const writer = db.bulkWriter();
+  snapshot.docs.forEach((doc) => writer.delete(doc.ref));
+  await writer.close();
+  return snapshot.size;
+}
+
+async function deleteLoanWithSchedules(loanDoc: FirebaseFirestore.QueryDocumentSnapshot): Promise<void> {
+  await deleteCollectionDocs(loanDoc.ref.collection("repaymentSchedules"));
+  await loanDoc.ref.delete();
+}
+
+async function performAccountDeletion(uid: string): Promise<{
+  deletedLoanApplications: number;
+  deletedLoans: number;
+}> {
+  try {
+    const bucket = admin.storage().bucket();
+    await bucket.deleteFiles({
+      prefix: `users/${uid}/documents/`,
+      force: true,
+    });
+  } catch (error) {
+    console.warn(`Failed to delete storage files for ${uid}`, error);
+  }
+
+  const userRef = db.collection("users").doc(uid);
+  const [loanApplicationsSnap, loansSnap] = await Promise.all([
+    db.collection("loanApplications").where("uid", "==", uid).get(),
+    db.collection("loans").where("uid", "==", uid).get(),
+  ]);
+
+  await Promise.all([
+    deleteCollectionDocs(userRef.collection("documents")),
+    deleteCollectionDocs(userRef.collection("phoneContacts")),
+    ...loansSnap.docs.map((doc) => deleteLoanWithSchedules(doc)),
+  ]);
+
+  const writer = db.bulkWriter();
+  loanApplicationsSnap.docs.forEach((doc) => writer.delete(doc.ref));
+  writer.delete(userRef);
+  writer.delete(db.collection("accountDeletionRequests").doc(uid));
+  await writer.close();
+
+  await admin.auth().deleteUser(uid);
+
+  return {
+    deletedLoanApplications: loanApplicationsSnap.size,
+    deletedLoans: loansSnap.size,
+  };
+}
+
 const REQUIRED_DOCUMENT_TYPES = ["id_front", "id_back", "selfie"] as const;
 const INSURANCE_DOCUMENT_TYPES = ["insurance_proof"] as const;
 const FIXED_INTEREST_RATE = 0.08;
@@ -635,6 +709,106 @@ export const markRepaymentPaidMock = onCall(async (request: any) => {
     ok: true,
     remainingInstallments: unpaid.length,
   };
+});
+
+export const requestAccountDeletion = onCall(async (request: any) => {
+  const uid = await requireSignedInUidFromRequest(request);
+
+  const [userSnap, loanApplicationsSnap, loansSnap] = await Promise.all([
+    db.collection("users").doc(uid).get(),
+    db.collection("loanApplications").where("uid", "==", uid).get(),
+    db.collection("loans").where("uid", "==", uid).get(),
+  ]);
+
+  const user = userSnap.data() ?? {};
+  const activeLoanCount = loansSnap.docs.filter((doc) => {
+    const status = String(doc.get("status") ?? "").trim().toLowerCase();
+    return status === "active" || status === "overdue";
+  }).length;
+
+  await db.collection("accountDeletionRequests").doc(uid).set(
+    {
+      uid,
+      status: "pending",
+      fullName: String(user.fullName ?? ""),
+      phone: String(user.phone ?? ""),
+      email: String(user.email ?? ""),
+      activeLoanCount,
+      loanCount: loansSnap.size,
+      applicationCount: loanApplicationsSnap.size,
+      requestedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+
+  return {
+    ok: true,
+    status: "pending",
+    activeLoanCount,
+    loanCount: loansSnap.size,
+    applicationCount: loanApplicationsSnap.size,
+  };
+});
+
+export const fetchAccountDeletionRequests = onCall(async (request: any) => {
+  await requireAdminUidFromRequest(request);
+
+  const snapshot = await db
+    .collection("accountDeletionRequests")
+    .orderBy("requestedAt", "desc")
+    .limit(100)
+    .get();
+
+  return {
+    requests: snapshot.docs.map((doc) => serializeDocument(doc.id, doc.data())),
+  };
+});
+
+export const rejectAccountDeletionRequest = onCall(async (request: any) => {
+  const adminUid = await requireAdminUidFromRequest(request);
+  const uid = String(request.data?.uid ?? "").trim();
+  const reason = String(request.data?.reason ?? "").trim();
+
+  if (!uid) {
+    throw new HttpsError("invalid-argument", "uid la bat buoc.");
+  }
+
+  await db.collection("accountDeletionRequests").doc(uid).set(
+    {
+      status: "rejected",
+      rejectedBy: adminUid,
+      rejectedAt: admin.firestore.FieldValue.serverTimestamp(),
+      rejectionReason: reason,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+
+  return { ok: true };
+});
+
+export const approveAccountDeletionRequest = onCall(async (request: any) => {
+  const adminUid = await requireAdminUidFromRequest(request);
+  const uid = String(request.data?.uid ?? "").trim();
+
+  if (!uid) {
+    throw new HttpsError("invalid-argument", "uid la bat buoc.");
+  }
+
+  const requestRef = db.collection("accountDeletionRequests").doc(uid);
+  await requestRef.set(
+    {
+      status: "processing",
+      approvedBy: adminUid,
+      approvedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+
+  const result = await performAccountDeletion(uid);
+  return { ok: true, ...result };
 });
 
 export const fetchAdminDashboard = onCall(async (request: any) => {

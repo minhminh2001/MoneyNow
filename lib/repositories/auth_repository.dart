@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
@@ -34,9 +35,10 @@ class PhoneOtpRequestResult {
 }
 
 class AuthRepository {
-  AuthRepository(this._auth);
+  AuthRepository(this._auth, this._functions);
 
   final FirebaseAuth _auth;
+  final FirebaseFunctions _functions;
   static const _phonePasswordEmailDomain = 'auth.moneynow.local';
 
   Stream<User?> authStateChanges() => _auth.authStateChanges();
@@ -158,6 +160,22 @@ class AuthRepository {
     await _auth.signOut();
     await _auth.authStateChanges().firstWhere((user) => user == null);
   }
+
+  Future<void> requestAccountDeletion() async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw FirebaseAuthException(
+        code: 'auth-required',
+        message: 'Phiên đăng nhập đã hết. Vui lòng đăng nhập lại.',
+      );
+    }
+
+    final token = await user.getIdToken(true);
+    final callable = _functions.httpsCallable('requestAccountDeletion');
+    await callable.call<Map<String, dynamic>>({
+      'idToken': token,
+    }).timeout(const Duration(seconds: 45));
+  }
 }
 
 String translateAuthError(Object error) {
@@ -173,7 +191,8 @@ String translateAuthError(Object error) {
       case 'session-expired':
         return 'Mã OTP đã hết hạn. Vui lòng yêu cầu gửi lại mã.';
       case 'too-many-requests':
-        return 'Thiết bị đang gửi yêu cầu OTP quá nhiều lần. Vui lòng chờ một lúc rồi thử lại.';
+        return 'Thiết bị hoặc mạng hiện tại đang gửi yêu cầu OTP quá nhiều lần.\n\n'
+            'Bạn hãy chờ khoảng 30-60 phút rồi thử lại. Nếu cần test sớm hơn, hãy đổi sang số điện thoại khác hoặc chuyển sang mạng khác (Wi-Fi/4G/5G).';
       case 'quota-exceeded':
         return 'Hạn mức gửi OTP của Firebase Authentication đã chạm ngưỡng.';
       case 'unsupported-platform':
@@ -198,9 +217,13 @@ String translateAuthError(Object error) {
       case 'network-request-failed':
         return 'Không thể kết nối mạng. Vui lòng kiểm tra Internet và thử lại.';
       case 'internal-error':
-        final raw = (error.message ?? '').toUpperCase();
+        final detail = error.message?.trim();
+        final raw = (detail ?? '').toUpperCase();
         if (raw.contains('CONFIGURATION_NOT_FOUND')) {
           return 'Firebase Authentication chưa được cấu hình đúng cho ứng dụng này. Hãy kiểm tra lại project Firebase và bật Phone trong Authentication.';
+        }
+        if (detail != null && detail.isNotEmpty) {
+          return 'Firebase Authentication báo lỗi nội bộ:\n\n$detail';
         }
         return 'Hệ thống xác thực đang gặp lỗi nội bộ. Vui lòng thử lại sau.';
       default:
@@ -213,8 +236,13 @@ String translateAuthError(Object error) {
   }
 
   final text = error.toString();
+  final upperText = text.toUpperCase();
   if (text.toUpperCase().contains('CONFIGURATION_NOT_FOUND')) {
     return 'Firebase Authentication chưa được cấu hình đúng cho ứng dụng này. Hãy kiểm tra lại project Firebase và bật Phone trong Authentication.';
+  }
+  if (upperText.contains('KEYCHAIN') ||
+      upperText.contains('NSLOCALIZEDFAILUREREASONERRORKEY')) {
+    return 'Ứng dụng chưa truy cập được bộ nhớ đăng nhập của macOS. Hãy đóng app, chạy lại bản mới nhất và thử đăng nhập lại.';
   }
 
   return 'Không thể xác thực tài khoản lúc này. Vui lòng thử lại.';

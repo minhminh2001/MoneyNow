@@ -12,5 +12,6 @@ class SceneDelegate: FlutterSceneDelegate {
         return
       }
     }
+    super.scene(scene, openURLContexts: URLContexts)
   }
 }
